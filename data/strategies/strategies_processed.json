@@ -1,0 +1,224 @@
+[
+  {
+    "metadata": {
+      "name": "Volatility Breakout Scalping",
+      "regime": "Volatile"
+    },
+    "theory": {
+      "principle": "This strategy's DNA is rooted in kinetic energy release. It waits for periods of price compression (consolidation) and capitalizes on the explosive directional move that occurs when established support or resistance boundaries give way, riding the immediate surge in market participation.",
+      "market_inefficiency": "Liquidity cascades and delayed retail reactions to institutional volume absorption at key structural boundaries, causing rapid momentum spikes when ranges break.",
+      "synergy_markers": {
+        "works_well_with": [
+          "Volume Analysis Filters",
+          "Bollinger Band Squeezes (Tightening)",
+          "Average True Range (ATR) Expansion"
+        ],
+        "conflicts_with": [
+          "Mean Reversion Logic",
+          "Low Volatility/Consolidating Environments"
+        ]
+      }
+    },
+    "mechanics": {
+      "logic_gate": {
+        "entry_primary": [
+          "Price aggressively breaks and closes beyond an identified range, support/resistance level, or chart pattern (e.g., triangle, flag, wedge)."
+        ],
+        "entry_confirmation": [
+          "Significant increase in trading volume accompanying the breakout.",
+          "Bollinger Bands expand after a period of tightening.",
+          "Average True Range (ATR) shows increasing volatility."
+        ]
+      },
+      "exit_logic": {
+        "take_profit": "Predefined profit target reached or trailing stop-loss triggered to ride the surge.",
+        "exit_condition": "Stop-loss triggered just beyond the opposite side of the breakout pattern/level (protecting against a false breakout)."
+      }
+    },
+    "operational_meta": {
+      "risk_profile": "Aggressive",
+      "dependency_indicators": [
+        "Volume",
+        "Bollinger Bands",
+        "ATR",
+        "Support/Resistance Levels"
+      ]
+    }
+  },
+  
+  {
+    "metadata": {
+      "name": "Turtle Strategy (System 1 - 20-Day Breakout)",
+      "regime": "Trending"
+    },
+    "theory": {
+      "principle": "Built on absolute trend-following mechanics, the DNA of the Turtle Strategy is pure macroeconomic momentum combined with mathematical volatility-adjusted sizing. It mechanically buys the absolute highest high of the last 20 days, assuming 'new highs beget new highs', while ruthlessly capping risk to a maximum of 2% based on the asset's Average True Range (ATR or 'N').",
+      "market_inefficiency": "Macro-trend extension and behavioral anchoring, exploiting the broader market's tendency to underestimate the duration and magnitude of established long-term trends.",
+      "synergy_markers": {
+        "works_well_with": [
+          "Volatility-based position sizing (ATR)",
+          "Strict Risk Management Algorithms",
+          "Long-term Trend Followers"
+        ],
+        "conflicts_with": [
+          "High Frequency Scalping",
+          "Mean Reversion",
+          "Fixed Take-Profit targets (limits profit running)"
+        ]
+      }
+    },
+    "mechanics": {
+      "logic_gate": {
+        "entry_primary": [
+          "Price breaks and exceeds the highest high of the last 20 days (Long).",
+          "Price breaks and drops below the lowest low of the last 20 days (Short)."
+        ],
+        "entry_confirmation": [
+          "Calculate 'N' (20-day EMA True Range/ATR) to dynamically size the position (1 Unit) so maximum risk does not exceed 2%."
+        ]
+      },
+      "exit_logic": {
+        "take_profit": "Profits are left to run dynamically without a fixed target until the trailing exit_condition is breached.",
+        "exit_condition": "Price drops below the 10-day LOW (for longs) or rises above the 10-day HIGH (for shorts), OR a hard stop loss of 2N is hit."
+      }
+    },
+    "operational_meta": {
+      "risk_profile": "Conservative",
+      "dependency_indicators": [
+        "20-day Donchian Channels (High/Low)",
+        "10-day Donchian Channels (High/Low)",
+        "ATR (N)"
+      ]
+    }
+  },
+  {
+    "metadata": {
+      "name": "Turtle Strategy (System 2 - 55-Day Macro Breakout)",
+      "regime": "Trending"
+    },
+    "theory": {
+      "principle": "A slower, heavily filtered variant of System 1. Its DNA operates on a much longer time horizon, aiming to capture massive macro-trends by waiting for 55-day extreme breakouts. By requiring such a significant historical break, it filters out medium-term market noise, false breakouts, and temporary volatility spikes.",
+      "market_inefficiency": "Deep macroeconomic shifts and institutional capital flows, exploiting massive, slow-moving reallocations of capital that take months to fully price into an asset.",
+      "synergy_markers": {
+        "works_well_with": [
+          "Macro Trend Confirmers",
+          "Volatility-Based Sizing (N)"
+        ],
+        "conflicts_with": [
+          "Intraday Trading / Scalping",
+          "Choppy / Volatile Sideways ranges"
+        ]
+      }
+    },
+    "mechanics": {
+      "logic_gate": {
+        "entry_primary": [
+          "Price breaks and exceeds the 55-day HIGH (for longs).",
+          "Price breaks and drops below the 55-day LOW (for shorts)."
+        ],
+        "entry_confirmation": [
+          "Calculation of 'N' (ATR) confirms trade size maintains the strict <2% risk rule."
+        ]
+      },
+      "exit_logic": {
+        "take_profit": "Profits are left to run infinitely until the macro trend conclusively reverses based on a trailing structural level.",
+        "exit_condition": "Trailing stop loss based on a significant opposite-direction extreme is breached, or hard stop loss of 2N is hit."
+      }
+    },
+    "operational_meta": {
+      "risk_profile": "Conservative",
+      "dependency_indicators": [
+        "55-day Donchian Channels (High/Low)",
+        "ATR (N)"
+      ]
+    }
+  },
+  
+  {
+    "metadata": {
+      "name": "Bollinger Bands + RSI Extremes",
+      "regime": "Sideways"
+    },
+    "theory": {
+      "principle": "Operates on the premise that in a non-trending, range-bound environment, prices will inevitably bounce between the upper and lower statistical extremes defined by two standard deviations. The ultra-fast 5-period RSI provides a hyper-sensitive trigger for the snap-back, while the ADX acts as a strict gatekeeper to avoid trending traps.",
+      "market_inefficiency": "Range-bound liquidity hunting, exploiting the lack of directional momentum where price predictably oscillates between standard deviation boundaries.",
+      "synergy_markers": {
+        "works_well_with": [
+          "Volatility Filters (ADX < 25)",
+          "Support/Resistance grids"
+        ],
+        "conflicts_with": [
+          "Trending Markets",
+          "Momentum Breakouts"
+        ]
+      }
+    },
+    "mechanics": {
+      "logic_gate": {
+        "entry_primary": [
+          "Price crosses the outer Bollinger Band."
+        ],
+        "entry_confirmation": [
+          "ADX is below 25 (confirming a non-trending environment).",
+          "RSI drops below 30 or above 70, then strictly exits the extreme zone."
+        ]
+      },
+      "exit_logic": {
+        "take_profit": "Price touches the opposite Bollinger Band.",
+        "exit_condition": "Stop loss triggered at the recent swing extreme just beyond the entry."
+      }
+    },
+    "operational_meta": {
+      "risk_profile": "Aggressive",
+      "dependency_indicators": [
+        "Bollinger Bands (40-period, 2 SD)",
+        "RSI (5-period)",
+        "ADX (14-period)"
+      ]
+    }
+  },
+  {
+    "metadata": {
+      "name": "VWAP and Stochastic Oscillator Micro-Reversion",
+      "regime": "Volatile"
+    },
+    "theory": {
+      "principle": "Designed for micro-timeframes (e.g., 5-minute), this strategy anchors itself to the VWAP, an institutional volume-based mean. It catches micro-reversions when retail traders push the price beyond 1.5 standard deviations, utilizing the Stochastic Oscillator to optimally time the exhaustion of these irrational micro-pushes.",
+      "market_inefficiency": "Intraday retail overextensions against institutional volume averages causing delayed reactions to volume spikes.",
+      "synergy_markers": {
+        "works_well_with": [
+          "Volume-weighted means",
+          "Tight Volatility Bands"
+        ],
+        "conflicts_with": [
+          "Low volume/illiquid environments",
+          "Long-term swing trading"
+        ]
+      }
+    },
+    "mechanics": {
+      "logic_gate": {
+        "entry_primary": [
+          "A candle closes back inside the Bollinger Band after previously breaching it."
+        ],
+        "entry_confirmation": [
+          "Price is aligned correctly above/below the VWAP trend.",
+          "Stochastic Oscillator confirms extreme exhaustion (below 20 or above 80)."
+        ]
+      },
+      "exit_logic": {
+        "take_profit": "Price touches the opposite Bollinger Band.",
+        "exit_condition": "Stochastic Oscillator enters the opposite extreme zone."
+      }
+    },
+    "operational_meta": {
+      "risk_profile": "Aggressive",
+      "dependency_indicators": [
+        "VWAP",
+        "Bollinger Bands (1.5 SD)",
+        "Stochastic Oscillator (7,4,3)"
+      ]
+    }
+  }
+]
+

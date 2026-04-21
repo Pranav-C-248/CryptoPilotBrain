@@ -1,0 +1,77 @@
+{
+  "test_run": "2026-04-21T09:12:37.187535Z",
+  "asset": "BTC/USDT",
+  "market_data": {
+    "asset_name": "BTCUSDT",
+    "snapshot": {
+      "open": 67100.0,
+      "high": 67800.0,
+      "low": 66950.0,
+      "close": 67450.25
+    },
+    "trends": {
+      "pct_change_50": 12.4,
+      "pct_change_10": 3.1,
+      "market_structure": "Uptrend"
+    },
+    "rsi": {
+      "current": 62.5,
+      "avg_50": 54.2,
+      "trend": "Increasing"
+    },
+    "bands": {
+      "upper": 69200.0,
+      "lower": 64800.0,
+      "position_label": "Upper Half"
+    },
+    "ema": {
+      "value": 66100.0,
+      "price_rel": "Price Above EMA",
+      "slope": "Increasing"
+    },
+    "levels": {
+      "high_50": 68100.0,
+      "low_50": 59200.0,
+      "high_20": 67800.0,
+      "low_20": 63400.0,
+      "high_55": 70100.0,
+      "low_55": 55000.0
+    },
+    "volume": {
+      "current": 3850.0,
+      "avg_50": 2100.0,
+      "is_spike": true
+    },
+    "volatility": {
+      "atr": 680.0
+    },
+    "stochastic": {
+      "current": 72.0
+    }
+  },
+  "sentiment": 0.65,
+  "analyst_output": {
+    "signal": "HOLD",
+    "confidence": 0.33,
+    "strategy_used": "Volatility Breakout Scalping",
+    "reasoning": "The market is currently volatile, characterized by a volume spike and high ATR. However, the specific entry conditions for the chosen strategy, which require a confirmed breakout and historical band expansion, are not fully met by the current snapshot.",
+    "internal_monologue": "STEP 1 \u2014 REGIME CHECK: The market is currently exhibiting a mix of upward momentum (Uptrend structure) but the presence of a volume spike (3850.0 vs Avg 2100.0) and high ATR (680.0) suggests a Volatile regime. \n\nSTEP 2 \u2014 STRATEGY SELECTION: I evaluate the candidates. The 'Volatility Breakout Scalping' strategy is designed for Volatile markets and relies on volume and ATR expansion, which are present. The 'VWAP and Stochastic Oscillator Micro-Reversion' strategy also targets Volatile markets. Since the current context shows a recent volume spike and high ATR, the Volatility Breakout Scalping strategy aligns better with the immediate kinetic energy suggested by the data. I select 'Volatility Breakout Scalping'.\n\nSTEP 3 \u2014 CONFLUENCE CHECK: I check the entry confirmations for 'Volatility Breakout Scalping'.\n1. Significant increase in trading volume accompanying the breakout: The current volume is 3850.0, which is a spike relative to the average of 2100.0. (Satisfied: YES)\n2. Bollinger Bands expand after a period of tightening: The context does not provide historical band data to confirm expansion post-squeezing, only the current state (Upper Half). (Satisfied: NO, cannot confirm expansion history)\n3. Average True Range (ATR) shows increasing volatility: ATR is 680.0. (Satisfied: YES)\n\nOnly 2 out of 3 conditions are confirmed. The strategy requires a breakout, which is not explicitly defined by the current snapshot, only the structure. Since I cannot confirm the primary entry condition (breakout) or the historical context for the Bollinger Band expansion, I must default to HOLD based on insufficient confirmation.",
+    "entry_condition": "Price aggressively breaks and closes beyond an identified range, support/resistance level, or chart pattern and Volume > Avg_2100.0 and ATR > 680.0",
+    "exit_condition": "Stop-loss triggered just beyond the opposite side of the breakout pattern/level",
+    "valid_till": "2026-04-21T13:07:50Z",
+    "asset_name": "BTCUSDT"
+  },
+  "risk_output": {
+    "asset_name": "BTCUSDT",
+    "signal": "HOLD",
+    "entry_condition": "Price aggressively breaks and closes beyond an identified range, support/resistance level, or chart pattern and Volume > Avg_2100.0 and ATR > 680.0",
+    "exit_condition": "Stop-loss triggered just beyond the opposite side of the breakout pattern/level",
+    "target": 0.0,
+    "stop_loss": 0.0,
+    "position_size": 0.0,
+    "timeframe": "4h",
+    "audit_summary": "[AGGRESSIVE] BTCUSDT | ANALYST: HOLD \u2192 FINAL: HOLD\nSTRATEGY: Volatility Breakout Scalping | CONF: 0.33\nENTRY: 67450.25 | SL: 0.0000 | TP: OPEN (profits run) | SIZE: $0.00\nRSI: 62.5 | ATR: 680.0 | SENTIMENT: 0.65\nVETOES: Analyst issued HOLD.",
+    "valid_until": "2026-04-21T13:12:37Z"
+  },
+  "checks_passed": true
+}

@@ -1,0 +1,10 @@
+crypto_data/
+venv/
+.env
+*.sqlite3
+*.csv
+**/__pycache__/
+data.py
+dataaaa.py
+*.txt
+change.py

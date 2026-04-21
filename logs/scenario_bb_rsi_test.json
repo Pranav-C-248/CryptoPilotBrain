@@ -1,0 +1,75 @@
+{
+  "test_run": "2026-04-21T12:40:33.215020Z",
+  "scenario": "BB+RSI Extremes \u2014 Lower Band Bounce",
+  "asset": "BTC/USDT",
+  "injected_data": {
+    "asset_name": "BTCUSDT",
+    "snapshot": {
+      "open": 41800.0,
+      "high": 42050.0,
+      "low": 41500.0,
+      "close": 41950.0
+    },
+    "trends": {
+      "pct_change_50": -0.8,
+      "pct_change_10": -0.3,
+      "market_structure": "Sideways/Ranging"
+    },
+    "rsi": {
+      "current": 33.0,
+      "avg_50": 49.5,
+      "trend": "Increasing",
+      "prev": 28.0
+    },
+    "bands": {
+      "upper": 44200.0,
+      "lower": 41800.0,
+      "position_label": "Lower Half"
+    },
+    "ema": {
+      "value": 42900.0,
+      "price_rel": "Price Below EMA",
+      "slope": "Decreasing"
+    },
+    "levels": {
+      "high_50": 44500.0,
+      "low_50": 41200.0,
+      "high_20": 44100.0,
+      "low_20": 41500.0,
+      "high_55": 45200.0,
+      "low_55": 40800.0
+    },
+    "volume": {
+      "current": 1850.0,
+      "avg_50": 2100.0,
+      "is_spike": false
+    },
+    "volatility": {
+      "atr": 280.0
+    },
+    "stochastic": {
+      "current": 22.0
+    }
+  },
+  "sentiment": 0.48,
+  "analyst_output": {
+    "signal": "BUY",
+    "confidence": 0.5,
+    "strategy_used": "Bollinger Bands + RSI Extremes",
+    "reasoning": "The market is in a confirmed Sideways regime. Price is at the lower Bollinger Band, and RSI has just exited the oversold zone, indicating a potential bounce. All entry conditions for the 'Bollinger Bands + RSI Extremes' strategy are met.",
+    "internal_monologue": "STEP 1 \u2014 REGIME CHECK:\nThe market structure is explicitly stated as \"Sideways/Ranging\" (50-Day: -0.8%, 10-Day: -0.3%). The ATR/Price is 0.667%, which is annotated as \"low \u2014 non-trending confirmed\". Therefore, the market regime is Sideways.\n\nSTEP 2 \u2014 STRATEGY SELECTION:\nThe strategy candidate \"Bollinger Bands + RSI Extremes\" has a regime match of \"Sideways\".\nIts entry_primary condition is \"Price crosses the outer Bollinger Band.\" The packet states: \"*** Price (41950.0) is at or near BB Lower (41800.0) \u2014 potential bounce zone. Band breach/touch confirmed. ***\". This confirms the primary entry condition for a long position.\nIts conflicts_with list includes \"Trending Markets\" and \"Momentum Breakouts\". The current market is Sideways and non-trending (ATR/Price 0.667% is low), so there are no conflicts.\nThis strategy is a good fit.\n\nSTEP 3 \u2014 CONFLUENCE CHECK:\nChosen strategy: \"Bollinger Bands + RSI Extremes\".\n1. \"ADX is below 25 (confirming a non-trending environment).\" ADX is not present, but the market_structure is \"Sideways/Ranging\" and ATR/Price is 0.667% (\"low \u2014 non-trending confirmed\"). Per instructions, this infers non-trending confirmation. (YES)\n2. \"RSI drops below 30 or above 70, then strictly exits the extreme zone.\" The packet states: \"*** RSI was oversold last candle (28.0) and has now exited the oversold zone (33.0). Oversold EXIT confirmed. ***\". (YES)\nAll entry confirmation conditions are met.\n\nSTEP 4 \u2014 SIGNAL DECISION:\nAll entry confirmation conditions are met, and the primary condition (price at BB Lower, RSI exiting oversold) indicates a potential long entry. Despite the Sideways regime, the confluence is clear. Therefore, a BUY signal is appropriate.",
+    "entry_condition": "close <= BOLLINGER_LOWER * 1.01 and rsi_prev < 30 and rsi_current > 30",
+    "exit_condition": "close >= BOLLINGER_UPPER or close < (BOLLINGER_LOWER - ATR)",
+    "valid_till": "2026-04-21T16:40:20Z",
+    "asset_name": "BTCUSDT"
+  },
+  "assertions": {
+    "signal_correct": true,
+    "strategy_correct": true,
+    "confidence_in_range": true,
+    "confidence_cap_respected": true
+  },
+  "failures": [],
+  "warnings": [],
+  "passed": true
+}
