@@ -8,7 +8,10 @@ sys.path.insert(0, project_root)
 
 from src.dashboard.shared.database import get_db, AuditLog
 
-st.set_page_config(page_title="CryptoPilot - Explainable AI", page_icon="🧠", layout="wide")
+st.set_page_config(page_title="CryptoPilot - Explainable AI", page_icon="", layout="wide")
+
+from src.dashboard.shared.theme import inject_theme_css
+inject_theme_css()
 
 st.title("Explainable AI (XAI) 🧠")
 st.markdown("Detailed breakdown of the AI's internal reasoning process.")

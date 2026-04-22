@@ -8,7 +8,10 @@ sys.path.insert(0, project_root)
 
 from src.dashboard.shared.database import get_db, AuditLog
 
-st.set_page_config(page_title="CryptoPilot - Audit Trail", page_icon="📋", layout="wide")
+st.set_page_config(page_title="CryptoPilot - Audit Trail", page_icon="", layout="wide")
+
+from src.dashboard.shared.theme import inject_theme_css
+inject_theme_css()
 
 st.title("Audit Trail 📋")
 st.markdown("History of all AI trading decisions.")

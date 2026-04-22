@@ -26,6 +26,9 @@ st.set_page_config(
 # Initialize Session State
 init_session_state()
 
+from src.dashboard.shared.theme import inject_theme_css
+inject_theme_css()
+
 # Main UI
 st.title("CryptoPilot: Markets ")
 

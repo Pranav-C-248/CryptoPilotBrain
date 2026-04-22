@@ -15,10 +15,13 @@ from src.dashboard.shared.database import get_db, Portfolio, Position, TradeLedg
 # Page Configuration
 st.set_page_config(
     page_title="CryptoPilot - Portfolio",
-    page_icon="💼",
+    page_icon="",
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+from src.dashboard.shared.theme import inject_theme_css
+inject_theme_css()
 
 st.title("CryptoPilot: Portfolio 💼")
 

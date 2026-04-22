@@ -8,7 +8,10 @@ import sys
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 sys.path.insert(0, project_root)
 
-st.set_page_config(page_title="CryptoPilot - News", page_icon="📰", layout="wide")
+st.set_page_config(page_title="CryptoPilot - News", page_icon="", layout="wide")
+
+from src.dashboard.shared.theme import inject_theme_css
+inject_theme_css()
 
 st.title("Crypto News & Sentiment 📰")
 st.markdown("Latest news from CoinDesk.")
