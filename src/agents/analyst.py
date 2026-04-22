@@ -5,7 +5,9 @@ from google import genai
 from google.genai import types
 import pandas as pd
 import numpy as np
-
+import requests
+import re
+from langchain_ollama import ChatOllama
 from src.schema.models import AnalystSignal
 from src.core.knowledge_base import TradingKnowledgeBase
 
@@ -18,6 +20,7 @@ class AnalystAgent:
         config = dotenv_values(".env")
         self.client = genai.Client(api_key=config["gemini_key"])
         self.model_name = "gemini-2.5-flash"
+        self.ollama_llm = ChatOllama(model="gemma4:e2b", format="json", temperature=0)
 
     def _detect_regime(self, market_data: dict) -> str:
         structure = market_data['trends']['market_structure'].lower()
@@ -225,24 +228,40 @@ SENTIMENT: {sentiment_score} (0.5=Neutral)
 Now follow Steps 1 through 6 from your instructions and produce the JSON output."""
 
         # ── LLM call ──────────────────────────────────────────────────────────
-        response = self.client.models.generate_content(
-            model=self.model_name,
-            contents=user_msg,
-            config=types.GenerateContentConfig(
-                system_instruction=system_msg,
-                temperature=0,
-                response_mime_type="application/json"
+        try:
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=user_msg,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_msg,
+                    temperature=0,
+                    response_mime_type="application/json"
+                )
             )
-        )
+            parsed = json.loads(response.text)
+        except Exception as e:
+            print(f"Gemini API failed: {e}. Falling back to local Ollama (gemma4:e2b)...")
+            try:
+                response = self.ollama_llm.invoke([("system", system_msg), ("human", user_msg)])
+                clean_content = self._clean_json_response(response.content)
+                parsed = json.loads(clean_content)
+            except Exception as ollama_e:
+                print(f"Ollama fallback also failed: {ollama_e}")
+                raise e # Raise the original exception if fallback fails
 
         try:
-            parsed = json.loads(response.text)
             parsed["asset_name"] = asset_name
             parsed["valid_till"] = valid_till
             return AnalystSignal.model_validate(parsed)
         except Exception as e:
-            print(f"--- DEBUG: LLM Output was: {response.text} ---")
+            print(f"--- DEBUG: LLM Output parsing or validation failed ---")
             raise e
+
+    def _clean_json_response(self, content: str) -> str:
+        match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", content)
+        if match:
+            return match.group(1)
+        return content.strip()
 
 
 # ══════════════════════════════════════════════════════════════════════════════

@@ -18,7 +18,7 @@ from src.tools.indicators import add_indicators
 # Page Configuration
 st.set_page_config(
     page_title="CryptoPilot - Markets",
-    page_icon="📈",
+    page_icon="",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -27,21 +27,32 @@ st.set_page_config(
 init_session_state()
 
 # Main UI
-st.title("CryptoPilot: Markets 📈")
+st.title("CryptoPilot: Markets ")
 
 # Sidebar
 with st.sidebar:
-    st.header("Controls")
+    st.markdown("##  CryptoPilot")
+    st.caption("AI-Powered Autonomous Trading Agent")
+    st.markdown("---")
+    
+    st.markdown("### Market Selection")
     symbol = st.selectbox(
-        "Select Asset",
+        "Trading Pair",
         options=["BTC/USDT", "ETH/USDT", "SOL/USDT"],
-        index=["BTC/USDT", "ETH/USDT", "SOL/USDT"].index(st.session_state['current_symbol'])
+        index=["BTC/USDT", "ETH/USDT", "SOL/USDT"].index(st.session_state['current_symbol']),
+        label_visibility="collapsed"
     )
     if symbol != st.session_state['current_symbol']:
         st.session_state['current_symbol'] = symbol
         st.session_state['last_market_data'] = None
         
-    st.info("The Data Agent runs automatically in the background every 4 hours.")
+    st.markdown("---")
+    st.markdown("###  System Status")
+    st.success(" Engine Online")
+    st.info(" Agent Cycle: 4h")
+    
+    st.markdown("---")
+    st.caption("v1.0.0 | Deepmind")
 
 # Auto-Fetch Market Data (4h timeframe)
 if st.session_state['last_market_data'] is None:
