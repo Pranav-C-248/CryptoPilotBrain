@@ -19,6 +19,8 @@ from src.core.knowledge_base import TradingKnowledgeBase
 from src.dashboard.shared.database import get_db, AuditLog
 from src.core.paper_trader import PaperTradingEngine
 
+from src.agents.data_agent import MainDataAgent
+
 # Global Paper Trading Engine instance
 engine = PaperTradingEngine()
 
@@ -30,60 +32,10 @@ def run_dashboard():
 
 def background_task():
     """The task that runs periodically in the background worker."""
-    print(f"\n[{datetime.now(timezone.utc).isoformat()}] Running background AI analysis...")
-    symbols = ["BTC/USDT", "ETH/USDT", "SOL/USDT"]
-    
-    try:
-        client = BinancePublicClient()
-        kb = TradingKnowledgeBase()
-        analyst = AnalystAgent(knowledge_base=kb)
-        rm = RiskManagerAgent(total_equity=10000.0)
-        db_gen = get_db()
-        db = next(db_gen)
-        
-        for symbol in symbols:
-            print(f"Analyzing {symbol}...")
-            df = client.get_historical_klines(symbol, "1h", limit=100)
-            df = add_indicators(df)
-            
-            packet = MarketDataProcessor.get_context_packet(df, len(df)-1, window=55)
-            if not packet:
-                print(f"Not enough data for {symbol}.")
-                continue
-                
-            packet['asset_name'] = symbol
-            
-            # Run Agents
-            signal = analyst.analyze(market_data=packet, sentiment_score=0.5)
-            risk_assessment = rm.evaluate(
-                analyst_signal=signal,
-                market_data=packet,
-                sentiment_score=0.5,
-                current_portfolio=[]
-            )
-            
-            # Log to Database
-            audit_log = AuditLog(
-                symbol=symbol,
-                action=risk_assessment.signal,
-                confidence=signal.confidence,
-                price=packet['snapshot']['close'],
-                factors={"internal_monologue": signal.internal_monologue},
-                explanation=signal.reasoning,
-            )
-            db.add(audit_log)
-            db.commit()
-            print(f"Successfully logged {risk_assessment.signal} signal for {symbol}.")
-            
-            # Put trade into Paper Trading Engine queue if valid
-            if risk_assessment.signal in ["BUY", "SELL"]:
-                engine.add_to_queue(risk_assessment, symbol, risk_assessment.signal)
-            
-    except Exception as e:
-        print(f"Background worker error: {str(e)}")
-        traceback.print_exc()
+    agent = MainDataAgent()
+    agent.run_analysis_cycle()
 
-def run_worker(interval_minutes=60):
+def run_worker(interval_minutes=240):
     """Starts the background worker polling the markets."""
     print(f"Starting CryptoPilot Background Worker (polling every {interval_minutes} minutes)...")
     
