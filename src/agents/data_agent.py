@@ -13,6 +13,7 @@ from src.agents.risk_manager import RiskManagerAgent
 from src.core.knowledge_base import TradingKnowledgeBase
 from src.dashboard.shared.database import get_db, AuditLog
 from src.core.paper_trader import PaperTradingEngine
+from src.agents.sentiment_agent import SentimentAgent
 
 class MainDataAgent:
     """
@@ -25,6 +26,7 @@ class MainDataAgent:
         self.analyst = AnalystAgent(knowledge_base=self.kb)
         self.rm = RiskManagerAgent(total_equity=10000.0, timeframe_hours=4)
         self.engine = PaperTradingEngine()
+        self.sentiment_agent = SentimentAgent()
         self.symbols = ["BTC/USDT", "ETH/USDT", "SOL/USDT"]
 
     def run_analysis_cycle(self):
@@ -48,14 +50,18 @@ class MainDataAgent:
                     
                 packet['asset_name'] = symbol
                 
+                # 0. Fetch Sentiment
+                sentiment_score = self.sentiment_agent.get_aggregate_sentiment(limit=5)
+                print(f"Sentiment score for {symbol} is {sentiment_score}")
+
                 # 1. Analyst Agent
-                signal = self.analyst.analyze(market_data=packet, sentiment_score=0.5)
+                signal = self.analyst.analyze(market_data=packet, sentiment_score=sentiment_score)
                 
                 # 2. Risk Manager Agent
                 risk_assessment = self.rm.evaluate(
                     analyst_signal=signal,
                     market_data=packet,
-                    sentiment_score=0.5,
+                    sentiment_score=sentiment_score,
                     current_portfolio=[]
                 )
                 

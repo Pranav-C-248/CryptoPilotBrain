@@ -73,4 +73,5 @@ if __name__ == "__main__":
     if args.mode == "dashboard":
         run_dashboard()
     elif args.mode == "worker":
+        run_dashboard()
         run_worker(interval_minutes=args.interval)
