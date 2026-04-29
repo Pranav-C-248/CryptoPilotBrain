@@ -4,6 +4,13 @@ def apply_global_style():
     st.markdown("""
     <style>
 
+    /* Font */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    html, body, [class*="css"] {
+        font-family: 'Inter', sans-serif;
+    }
+
     /* Background */
     body {
         background: radial-gradient(circle at top left, #0f172a, #020617);
@@ -21,19 +28,20 @@ def apply_global_style():
     section[data-testid="stSidebar"] {
         background: linear-gradient(180deg, #0f172a, #020617);
         border-right: 1px solid rgba(255,255,255,0.05);
+        padding-top: 10px;
     }
 
     /* Card */
     .card {
         position: relative;
-        background: linear-gradient(145deg, #111827, #1f2937);
-        border: 1px solid rgba(255,255,255,0.05);
+        background: linear-gradient(145deg, #0f172a, #1e293b);
         border-radius: 16px;
         padding: 18px 20px;
         margin-bottom: 18px;
+        border: 1px solid rgba(255,255,255,0.04);
 
         box-shadow: 
-            0 10px 30px rgba(0,0,0,0.4),
+            0 20px 40px rgba(0,0,0,0.45),
             inset 0 1px 0 rgba(255,255,255,0.05);
 
         transition: all 0.2s ease-in-out;
@@ -41,7 +49,7 @@ def apply_global_style():
 
     .card:hover {
         transform: translateY(-2px);
-        box-shadow: 0 14px 40px rgba(0,0,0,0.5);
+        box-shadow: 0 24px 50px rgba(0,0,0,0.6);
     }
 
     /* Card glow */
@@ -59,6 +67,18 @@ def apply_global_style():
         mask-composite: exclude;
         opacity: 0.25;
         pointer-events: none;
+    }
+
+    /* Headings */
+    h1 {
+        font-size: 32px;
+        font-weight: 700;
+        color: #e5e7eb;
+    }
+
+    h2, h3 {
+        font-weight: 600;
+        color: #d1d5db;
     }
 
     /* Metrics */
@@ -89,17 +109,33 @@ def apply_global_style():
         background: linear-gradient(135deg, #3b82f6, #8b5cf6);
         color: white;
         border: none;
+        transition: all 0.2s ease;
     }
 
     .stButton button:hover {
         opacity: 0.9;
-        transform: scale(1.02);
+        transform: translateY(-1px);
     }
 
-    /* Table */
-    .stDataFrame {
+    /* Tables */
+    [data-testid="stDataFrame"] {
+        background: transparent;
+    }
+
+    [data-testid="stDataFrame"] table {
         border-radius: 12px;
         overflow: hidden;
+    }
+
+    [data-testid="stDataFrame"] th {
+        background: #0f172a;
+        color: #9ca3af;
+        font-weight: 500;
+    }
+
+    [data-testid="stDataFrame"] td {
+        background: #020617;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
     }
 
     /* Accent colors */
@@ -110,7 +146,7 @@ def apply_global_style():
         --accent-red: #ef4444;
     }
 
-    /* Hide default Streamlit header/footer */
+    /* Hide Streamlit default header/footer */
     header {visibility: hidden;}
     footer {visibility: hidden;}
 
