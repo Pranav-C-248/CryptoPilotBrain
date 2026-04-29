@@ -6,17 +6,39 @@ def render_metric_card(title: str, value: str, delta: str = None, key=None):
     # but we could wrap it in custom CSS if needed.
     st.metric(label=title, value=value, delta=delta)
 
-def render_signal_card(signal_data: dict):
-    """Renders a card highlighting the trading signal."""
-    signal = signal_data.get('signal', 'HOLD')
-    confidence = signal_data.get('confidence', 0.0)
-    
-    color = "#0ecb81" if signal == "BUY" else "#f6465d" if signal == "SELL" else "#fcd535"
-    
+def render_signal_card(signal_data):
+    import streamlit as st
+
+    signal = signal_data.get("signal", "N/A")
+    confidence = signal_data.get("confidence", 0)
+
+    # Color logic
+    if signal == "BUY":
+        color = "#22c55e"
+    elif signal == "SELL":
+        color = "#ef4444"
+    else:
+        color = "#f59e0b"
+
     st.markdown(f"""
-    <div style="background-color: #161b22; padding: 20px; border-radius: 10px; border-left: 5px solid {color};">
-        <h3 style="margin-top: 0; color: {color};">{signal}</h3>
-        <p style="margin-bottom: 5px; color: #848e9c;">Confidence: <strong>{confidence:.0%}</strong></p>
+    <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            
+            <div>
+                <div class="metric-title">AI Signal</div>
+                <div style="font-size:24px; font-weight:600; color:{color};">
+                    {signal}
+                </div>
+            </div>
+
+            <div style="text-align:right;">
+                <div class="metric-title">Confidence</div>
+                <div style="font-size:20px; font-weight:500;">
+                    {confidence}%
+                </div>
+            </div>
+
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
