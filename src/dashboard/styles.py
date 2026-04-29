@@ -4,6 +4,11 @@ def apply_global_style():
     st.markdown("""
     <style>
 
+    /* Background */
+    body {
+        background: radial-gradient(circle at top left, #0f172a, #020617);
+    }
+
     /* Page padding */
     .block-container {
         padding-top: 1.5rem;
@@ -12,45 +17,102 @@ def apply_global_style():
         padding-right: 2rem;
     }
 
-    /* Card */
-    .card {
-        background: rgba(30, 41, 59, 0.6);
-        border: 1px solid rgba(148, 163, 184, 0.1);
-        border-radius: 14px;
-        padding: 16px 18px;
-        margin-bottom: 16px;
-        backdrop-filter: blur(10px);
+    /* Sidebar */
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #0f172a, #020617);
+        border-right: 1px solid rgba(255,255,255,0.05);
     }
 
-    /* Metric Title */
+    /* Card */
+    .card {
+        position: relative;
+        background: linear-gradient(145deg, #111827, #1f2937);
+        border: 1px solid rgba(255,255,255,0.05);
+        border-radius: 16px;
+        padding: 18px 20px;
+        margin-bottom: 18px;
+
+        box-shadow: 
+            0 10px 30px rgba(0,0,0,0.4),
+            inset 0 1px 0 rgba(255,255,255,0.05);
+
+        transition: all 0.2s ease-in-out;
+    }
+
+    .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 14px 40px rgba(0,0,0,0.5);
+    }
+
+    /* Card glow */
+    .card::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: 16px;
+        padding: 1px;
+        background: linear-gradient(45deg, #3b82f6, #8b5cf6);
+        -webkit-mask: 
+            linear-gradient(#000 0 0) content-box, 
+            linear-gradient(#000 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+        opacity: 0.25;
+        pointer-events: none;
+    }
+
+    /* Metrics */
     .metric-title {
         font-size: 12px;
-        color: #94a3b8;
+        color: #9ca3af;
         margin-bottom: 4px;
     }
 
-    /* Metric Value */
     .metric-value {
-        font-size: 22px;
-        font-weight: 600;
-        color: #e2e8f0;
+        font-size: 26px;
+        font-weight: 700;
+        color: #ffffff;
     }
 
-    /* Section spacing */
-    .section-gap {
-        margin-top: 10px;
+    /* Text */
+    .text-body {
+        font-size: 14px;
+        line-height: 1.6;
+        color: #cbd5f5;
     }
 
-    /* Table fix */
+    /* Buttons */
+    .stButton button {
+        border-radius: 8px;
+        padding: 6px 10px;
+        font-weight: 500;
+        background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+        color: white;
+        border: none;
+    }
+
+    .stButton button:hover {
+        opacity: 0.9;
+        transform: scale(1.02);
+    }
+
+    /* Table */
     .stDataFrame {
-        border-radius: 10px;
+        border-radius: 12px;
         overflow: hidden;
     }
 
-    /* Remove top padding gap */
+    /* Accent colors */
+    :root {
+        --accent-blue: #3b82f6;
+        --accent-purple: #8b5cf6;
+        --accent-green: #22c55e;
+        --accent-red: #ef4444;
+    }
+
+    /* Hide default Streamlit header/footer */
     header {visibility: hidden;}
     footer {visibility: hidden;}
 
     </style>
     """, unsafe_allow_html=True)
-
