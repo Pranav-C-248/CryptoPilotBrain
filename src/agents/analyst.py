@@ -19,7 +19,7 @@ class AnalystAgent:
 
         config = dotenv_values(".env")
         self.client = genai.Client(api_key=config["gemini_key"])
-        self.model_name = "gemini-3-flash"
+        self.model_name = "gemini-2.5-flash"
         self.ollama_llm = ChatOllama(model="gemma4:e2b", format="json", temperature=0)
 
     def _detect_regime(self, market_data: dict) -> str:

@@ -104,7 +104,7 @@ class PaperTradingEngine:
             return bool(result)
         except Exception as e:
             # If evaluation fails, we might print a warning, but return False to be safe
-            # print(f"[PaperTrader] Condition eval failed '{condition_str}': {e}")
+            print(f"[PaperTrader] Condition eval failed '{condition_str}': {e}")
             return False
 
     def _check_entry(self, db, trade: QueuedTrade, data: dict):

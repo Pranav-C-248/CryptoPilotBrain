@@ -1,0 +1,102 @@
+{
+  "2026-03-13T00:00:00+00:00": {
+    "signal": {
+      "signal": "HOLD",
+      "confidence": 0.0,
+      "strategy_used": "fallback",
+      "reasoning": "The market is explicitly confirmed as non-trending by the ATR/Price annotation, despite other indicators suggesting an uptrend. Both available strategies are designed for trending regimes and are therefore unsuitable. Given the non-trending regime and overbought conditions, a HOLD signal is appropriate.",
+      "internal_monologue": "STEP 1 \u2014 REGIME CHECK:\nThe market structure is labeled \"Uptrend\", but the `ATR/Price: 1.479% (low \u2014 non-trending confirmed)` is an explicit, authoritative annotation indicating a non-trending market. The `Stochastic Oscillator: 80.34` being in an overbought exhaustion zone and price being at the `BB Upper` (71405.75 vs 71479.65) also suggest potential for reversal or consolidation, which aligns with a non-trending environment. Therefore, the market regime is **Sideways/Ranging (non-trending)**.\n\nSTEP 2 \u2014 STRATEGY SELECTION:\nBoth \"Turtle Strategy (System 1 - 20-Day Breakout)\" and \"Turtle Strategy (System 2 - 55-Day Macro Breakout)\" are explicitly designed for a \"Trending\" regime. Since the current market regime is confirmed as \"non-trending\", neither strategy's regime matches the current market conditions. Consequently, both strategies are discarded. The best-fit strategy is **fallback**.\n\nSTEP 3 \u2014 CONFLUENCE CHECK:\nNot applicable as no strategy was selected.\n\nSTEP 4 \u2014 SIGNAL DECISION:\nGiven that no suitable strategy was found and the market regime is Sideways/Ranging, the default signal is HOLD. Additionally, the `Stochastic Oscillator` is in an overbought exhaustion zone (80.34) and price is at the `BB Upper` (71405.75 vs 71479.65), indicating potential resistance or reversal, further supporting a HOLD decision.",
+      "entry_condition": "N/A",
+      "exit_condition": "N/A",
+      "valid_till": "2026-04-29T16:55:16Z",
+      "asset_name": "BTC/USDT"
+    },
+    "risk": {
+      "asset_name": "BTC/USDT",
+      "signal": "HOLD",
+      "entry_condition": "N/A",
+      "exit_condition": "N/A",
+      "target": 0.0,
+      "stop_loss": 0.0,
+      "position_size": 0.0,
+      "timeframe": "4h",
+      "audit_summary": "[CONSERVATIVE] BTC/USDT | ANALYST: HOLD \u2192 FINAL: HOLD\nSTRATEGY: fallback | CONF: 0.00\nENTRY: 71405.75 | SL: 0.0000 | TP: OPEN (profits run) | SIZE: $0.00\nRSI: 62.7 | ATR: 1055.79 | SENTIMENT: 0.50\nVETOES: Analyst issued HOLD.",
+      "valid_until": "2026-04-29T16:55:28Z"
+    }
+  },
+  "2026-03-13T04:00:00+00:00": {
+    "signal": {
+      "signal": "HOLD",
+      "confidence": 0.0,
+      "strategy_used": "fallback",
+      "reasoning": "Neither of the Turtle strategies met their primary entry conditions for a long position. The current price (71612.22) is below both the 20-day high (72000.0) and the 55-day high (74050.0). Therefore, no trade signal can be generated from the provided strategies.",
+      "internal_monologue": "STEP 1 \u2014 REGIME CHECK: The market structure is explicitly stated as \"Uptrend\". However, the ATR/Price is 1.454%, which is annotated as \"low \u2014 non-trending confirmed\". Despite this, the explicit \"Uptrend\" statement from STRUCTURE takes precedence for regime identification. Therefore, the regime is Trending.\nSTEP 2 \u2014 STRATEGY SELECTION:\n1. Turtle Strategy (System 1 - 20-Day Breakout): Regime matches (Trending). However, the entry_primary condition \"Price breaks and exceeds the highest high of the last 20 days\" is not met. The current close (71612.22) is below the 20-Candle High (72000.0). Therefore, this strategy is discarded.\n2. Turtle Strategy (System 2 - 55-Day Macro Breakout): Regime matches (Trending). However, the entry_primary condition \"Price breaks and exceeds the 55-day HIGH\" is not met. The current close (71612.22) is below the 55-Candle High (74050.0). Therefore, this strategy is discarded.\nSince neither strategy's primary entry condition is met, \"fallback\" is selected.\nSTEP 3 \u2014 CONFLUENCE CHECK: Not applicable as no strategy was selected.\nSTEP 4 \u2014 SIGNAL DECISION: As no strategy's primary entry condition was met, the signal is HOLD.",
+      "entry_condition": "N/A",
+      "exit_condition": "N/A",
+      "valid_till": "2026-04-29T16:55:28Z",
+      "asset_name": "BTC/USDT"
+    },
+    "risk": {
+      "asset_name": "BTC/USDT",
+      "signal": "HOLD",
+      "entry_condition": "N/A",
+      "exit_condition": "N/A",
+      "target": 0.0,
+      "stop_loss": 0.0,
+      "position_size": 0.0,
+      "timeframe": "4h",
+      "audit_summary": "[CONSERVATIVE] BTC/USDT | ANALYST: HOLD \u2192 FINAL: HOLD\nSTRATEGY: fallback | CONF: 0.00\nENTRY: 71612.22 | SL: 0.0000 | TP: OPEN (profits run) | SIZE: $0.00\nRSI: 63.9 | ATR: 1041.02 | SENTIMENT: 0.50\nVETOES: Analyst issued HOLD.",
+      "valid_until": "2026-04-29T16:55:39Z"
+    }
+  },
+  "2026-03-13T08:00:00+00:00": {
+    "signal": {
+      "signal": "HOLD",
+      "confidence": 0.0,
+      "strategy_used": "fallback",
+      "reasoning": "The market is currently in a Sideways/Ranging regime, as confirmed by the low ATR/Price (1.476%) and explicit 'non-trending confirmed' annotation, along with price being at the Bollinger Band Upper and Stochastic in the overbought zone (90.35). Both available strategies are designed for a Trending regime and are therefore unsuitable.",
+      "internal_monologue": "The market context indicates a broader 'Uptrend' in its structure. However, the ATR/Price is explicitly annotated as 'low \u2014 non-trending confirmed' (1.476%). This authoritative annotation suggests that despite the broader uptrend, the current market action lacks strong trending characteristics. Furthermore, the price is at the Bollinger Band Upper (72228.82 vs 71902.13), which is noted as a 'potential rejection zone', and the Stochastic Oscillator is in the 'overbought exhaustion zone' at 90.35. These factors collectively point towards a market that is currently consolidating or ranging, rather than strongly trending. Therefore, the market regime is identified as Sideways/Ranging. Both strategy candidates, 'Turtle Strategy (System 1 - 20-Day Breakout)' and 'Turtle Strategy (System 2 - 55-Day Macro Breakout)', are designed for a 'Trending' regime. Since the current market regime does not match the required regime for either strategy, neither can be applied. Thus, a 'fallback' decision is made.",
+      "entry_condition": "N/A",
+      "exit_condition": "N/A",
+      "valid_till": "2026-04-29T16:55:39Z",
+      "asset_name": "BTC/USDT"
+    },
+    "risk": {
+      "asset_name": "BTC/USDT",
+      "signal": "HOLD",
+      "entry_condition": "N/A",
+      "exit_condition": "N/A",
+      "target": 0.0,
+      "stop_loss": 0.0,
+      "position_size": 0.0,
+      "timeframe": "4h",
+      "audit_summary": "[CONSERVATIVE] BTC/USDT | ANALYST: HOLD \u2192 FINAL: HOLD\nSTRATEGY: fallback | CONF: 0.00\nENTRY: 72228.82 | SL: 0.0000 | TP: OPEN (profits run) | SIZE: $0.00\nRSI: 67.2 | ATR: 1066.32 | SENTIMENT: 0.50\nVETOES: Analyst issued HOLD.",
+      "valid_until": "2026-04-29T16:55:55Z"
+    }
+  },
+  "2026-03-13T12:00:00+00:00": {
+    "signal": {
+      "signal": "HOLD",
+      "confidence": 0.0,
+      "strategy_used": "fallback",
+      "reasoning": "The market is confirmed as non-trending (Sideways/Ranging) due to the low ATR/Price of 1.65%. Both available strategies are designed for a 'Volatile' regime, which does not align with the current market conditions. Consequently, no appropriate strategy can be applied at this time.",
+      "internal_monologue": "STEP 1 \u2014 REGIME CHECK:\nThe market structure indicates an Uptrend (10-Day: 3.43%). However, the ATR/Price is 1.65%, which is explicitly annotated as 'low \u2014 non-trending confirmed'. This explicit confirmation of non-trending conditions takes precedence for regime classification. Therefore, the market regime is Sideways/Ranging.\n\nSTEP 2 \u2014 STRATEGY SELECTION:\n1. Volatility Breakout Scalping: This strategy's regime is 'Volatile'. The current market regime is Sideways/Ranging. This is a regime mismatch, so the strategy is discarded.\n2. VWAP and Stochastic Oscillator Micro-Reversion: This strategy's regime is also 'Volatile'. The current market regime is Sideways/Ranging. This is a regime mismatch, so the strategy is discarded.\nNeither strategy fits the current Sideways/Ranging regime. Therefore, 'fallback' is selected.\n\nSTEP 3 \u2014 CONFLUENCE CHECK:\nNot applicable as 'fallback' was selected.\n\nSTEP 4 \u2014 SIGNAL DECISION:\nGiven that the market regime is Sideways/Ranging and no suitable strategy was identified, the default signal is HOLD. The rule 'Sideways regime \u2192 default to HOLD unless confluence is clear' applies here, and there is no confluence.",
+      "entry_condition": "",
+      "exit_condition": "",
+      "valid_till": "2026-04-29T16:55:55Z",
+      "asset_name": "BTC/USDT"
+    },
+    "risk": {
+      "asset_name": "BTC/USDT",
+      "signal": "HOLD",
+      "entry_condition": "",
+      "exit_condition": "",
+      "target": 0.0,
+      "stop_loss": 0.0,
+      "position_size": 0.0,
+      "timeframe": "4h",
+      "audit_summary": "[CONSERVATIVE] BTC/USDT | ANALYST: HOLD \u2192 FINAL: HOLD\nSTRATEGY: fallback | CONF: 0.00\nENTRY: 71831.46 | SL: 0.0000 | TP: OPEN (profits run) | SIZE: $0.00\nRSI: 63.2 | ATR: 1184.88 | SENTIMENT: 0.50\nVETOES: Analyst issued HOLD.",
+      "valid_until": "2026-04-29T16:56:03Z"
+    }
+  }
+}
