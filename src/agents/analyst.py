@@ -177,13 +177,13 @@ Write:
 
 STEP 6 — WRITE YOUR OUTPUT:
 Populate JSON in this exact order:
-  1. internal_monologue — full Step 1–4 reasoning, cite at least 3 metric values
+  1. internal_monologue — full Step 1-4 reasoning, cite at least 3 metric values
   2. strategy_used — strategy name or "fallback"
-  3. reasoning — concise 2–3 sentence summary
+  3. reasoning — concise 2-3 sentence summary
   4. entry_condition — from Step 5
   5. exit_condition — from Step 5
   6. signal — BUY, SELL, or HOLD
-  7. confidence — float 0.0–1.0
+  7. confidence — float 0.0-1.0
 
 RULES:
 - confidence > 0.8 only if ALL entry_confirmation conditions are met
@@ -210,8 +210,8 @@ TECHNICAL OVERLAYS:
 
 LEVELS:
 - 50-Candle: High {high_50} | Low {low_50}
-- 20-Candle: High {high_20} | Low {low_20}  ← Turtle System 1 breakout reference
-- 55-Candle: High {high_55} | Low {low_55}  ← Turtle System 2 breakout reference
+- 20-Candle: High {high_20} | Low {low_20}  
+- 55-Candle: High {high_55} | Low {low_55}  
 
 MOMENTUM:
 - Stochastic Oscillator: {stoch} {'← oversold exhaustion zone' if stoch < 20 else '← overbought exhaustion zone' if stoch > 80 else ''}
@@ -229,6 +229,7 @@ Now follow Steps 1 through 6 from your instructions and produce the JSON output.
 
         # ── LLM call ──────────────────────────────────────────────────────────
         try:
+            raise Exception("Gemini API Disabled")
             response = self.client.models.generate_content(
                 model=self.model_name,
                 contents=user_msg,

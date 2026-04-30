@@ -1,0 +1,402 @@
+{
+  "2026-03-13T00:00:00+00:00": {
+    "signal": {
+      "signal": "HOLD",
+      "confidence": 0.0,
+      "strategy_used": "fallback",
+      "reasoning": "The market is explicitly confirmed as non-trending by the ATR/Price annotation, despite other indicators suggesting an uptrend. Both available strategies are designed for trending regimes and are therefore unsuitable. Given the non-trending regime and overbought conditions, a HOLD signal is appropriate.",
+      "internal_monologue": "STEP 1 \u2014 REGIME CHECK:\nThe market structure is labeled \"Uptrend\", but the `ATR/Price: 1.479% (low \u2014 non-trending confirmed)` is an explicit, authoritative annotation indicating a non-trending market. The `Stochastic Oscillator: 80.34` being in an overbought exhaustion zone and price being at the `BB Upper` (71405.75 vs 71479.65) also suggest potential for reversal or consolidation, which aligns with a non-trending environment. Therefore, the market regime is **Sideways/Ranging (non-trending)**.\n\nSTEP 2 \u2014 STRATEGY SELECTION:\nBoth \"Turtle Strategy (System 1 - 20-Day Breakout)\" and \"Turtle Strategy (System 2 - 55-Day Macro Breakout)\" are explicitly designed for a \"Trending\" regime. Since the current market regime is confirmed as \"non-trending\", neither strategy's regime matches the current market conditions. Consequently, both strategies are discarded. The best-fit strategy is **fallback**.\n\nSTEP 3 \u2014 CONFLUENCE CHECK:\nNot applicable as no strategy was selected.\n\nSTEP 4 \u2014 SIGNAL DECISION:\nGiven that no suitable strategy was found and the market regime is Sideways/Ranging, the default signal is HOLD. Additionally, the `Stochastic Oscillator` is in an overbought exhaustion zone (80.34) and price is at the `BB Upper` (71405.75 vs 71479.65), indicating potential resistance or reversal, further supporting a HOLD decision.",
+      "entry_condition": "N/A",
+      "exit_condition": "N/A",
+      "valid_till": "2026-04-29T16:55:16Z",
+      "asset_name": "BTC/USDT"
+    },
+    "risk": {
+      "asset_name": "BTC/USDT",
+      "signal": "HOLD",
+      "entry_condition": "N/A",
+      "exit_condition": "N/A",
+      "target": 0.0,
+      "stop_loss": 0.0,
+      "position_size": 0.0,
+      "timeframe": "4h",
+      "audit_summary": "[CONSERVATIVE] BTC/USDT | ANALYST: HOLD \u2192 FINAL: HOLD\nSTRATEGY: fallback | CONF: 0.00\nENTRY: 71405.75 | SL: 0.0000 | TP: OPEN (profits run) | SIZE: $0.00\nRSI: 62.7 | ATR: 1055.79 | SENTIMENT: 0.50\nVETOES: Analyst issued HOLD.",
+      "valid_until": "2026-04-29T16:55:28Z"
+    }
+  },
+  "2026-03-13T04:00:00+00:00": {
+    "signal": {
+      "signal": "HOLD",
+      "confidence": 0.0,
+      "strategy_used": "fallback",
+      "reasoning": "Neither of the Turtle strategies met their primary entry conditions for a long position. The current price (71612.22) is below both the 20-day high (72000.0) and the 55-day high (74050.0). Therefore, no trade signal can be generated from the provided strategies.",
+      "internal_monologue": "STEP 1 \u2014 REGIME CHECK: The market structure is explicitly stated as \"Uptrend\". However, the ATR/Price is 1.454%, which is annotated as \"low \u2014 non-trending confirmed\". Despite this, the explicit \"Uptrend\" statement from STRUCTURE takes precedence for regime identification. Therefore, the regime is Trending.\nSTEP 2 \u2014 STRATEGY SELECTION:\n1. Turtle Strategy (System 1 - 20-Day Breakout): Regime matches (Trending). However, the entry_primary condition \"Price breaks and exceeds the highest high of the last 20 days\" is not met. The current close (71612.22) is below the 20-Candle High (72000.0). Therefore, this strategy is discarded.\n2. Turtle Strategy (System 2 - 55-Day Macro Breakout): Regime matches (Trending). However, the entry_primary condition \"Price breaks and exceeds the 55-day HIGH\" is not met. The current close (71612.22) is below the 55-Candle High (74050.0). Therefore, this strategy is discarded.\nSince neither strategy's primary entry condition is met, \"fallback\" is selected.\nSTEP 3 \u2014 CONFLUENCE CHECK: Not applicable as no strategy was selected.\nSTEP 4 \u2014 SIGNAL DECISION: As no strategy's primary entry condition was met, the signal is HOLD.",
+      "entry_condition": "N/A",
+      "exit_condition": "N/A",
+      "valid_till": "2026-04-29T16:55:28Z",
+      "asset_name": "BTC/USDT"
+    },
+    "risk": {
+      "asset_name": "BTC/USDT",
+      "signal": "HOLD",
+      "entry_condition": "N/A",
+      "exit_condition": "N/A",
+      "target": 0.0,
+      "stop_loss": 0.0,
+      "position_size": 0.0,
+      "timeframe": "4h",
+      "audit_summary": "[CONSERVATIVE] BTC/USDT | ANALYST: HOLD \u2192 FINAL: HOLD\nSTRATEGY: fallback | CONF: 0.00\nENTRY: 71612.22 | SL: 0.0000 | TP: OPEN (profits run) | SIZE: $0.00\nRSI: 63.9 | ATR: 1041.02 | SENTIMENT: 0.50\nVETOES: Analyst issued HOLD.",
+      "valid_until": "2026-04-29T16:55:39Z"
+    }
+  },
+  "2026-03-13T08:00:00+00:00": {
+    "signal": {
+      "signal": "HOLD",
+      "confidence": 0.0,
+      "strategy_used": "fallback",
+      "reasoning": "The market is currently in a Sideways/Ranging regime, as confirmed by the low ATR/Price (1.476%) and explicit 'non-trending confirmed' annotation, along with price being at the Bollinger Band Upper and Stochastic in the overbought zone (90.35). Both available strategies are designed for a Trending regime and are therefore unsuitable.",
+      "internal_monologue": "The market context indicates a broader 'Uptrend' in its structure. However, the ATR/Price is explicitly annotated as 'low \u2014 non-trending confirmed' (1.476%). This authoritative annotation suggests that despite the broader uptrend, the current market action lacks strong trending characteristics. Furthermore, the price is at the Bollinger Band Upper (72228.82 vs 71902.13), which is noted as a 'potential rejection zone', and the Stochastic Oscillator is in the 'overbought exhaustion zone' at 90.35. These factors collectively point towards a market that is currently consolidating or ranging, rather than strongly trending. Therefore, the market regime is identified as Sideways/Ranging. Both strategy candidates, 'Turtle Strategy (System 1 - 20-Day Breakout)' and 'Turtle Strategy (System 2 - 55-Day Macro Breakout)', are designed for a 'Trending' regime. Since the current market regime does not match the required regime for either strategy, neither can be applied. Thus, a 'fallback' decision is made.",
+      "entry_condition": "N/A",
+      "exit_condition": "N/A",
+      "valid_till": "2026-04-29T16:55:39Z",
+      "asset_name": "BTC/USDT"
+    },
+    "risk": {
+      "asset_name": "BTC/USDT",
+      "signal": "HOLD",
+      "entry_condition": "N/A",
+      "exit_condition": "N/A",
+      "target": 0.0,
+      "stop_loss": 0.0,
+      "position_size": 0.0,
+      "timeframe": "4h",
+      "audit_summary": "[CONSERVATIVE] BTC/USDT | ANALYST: HOLD \u2192 FINAL: HOLD\nSTRATEGY: fallback | CONF: 0.00\nENTRY: 72228.82 | SL: 0.0000 | TP: OPEN (profits run) | SIZE: $0.00\nRSI: 67.2 | ATR: 1066.32 | SENTIMENT: 0.50\nVETOES: Analyst issued HOLD.",
+      "valid_until": "2026-04-29T16:55:55Z"
+    }
+  },
+  "2026-03-13T12:00:00+00:00": {
+    "signal": {
+      "signal": "HOLD",
+      "confidence": 0.0,
+      "strategy_used": "fallback",
+      "reasoning": "The market is confirmed as non-trending (Sideways/Ranging) due to the low ATR/Price of 1.65%. Both available strategies are designed for a 'Volatile' regime, which does not align with the current market conditions. Consequently, no appropriate strategy can be applied at this time.",
+      "internal_monologue": "STEP 1 \u2014 REGIME CHECK:\nThe market structure indicates an Uptrend (10-Day: 3.43%). However, the ATR/Price is 1.65%, which is explicitly annotated as 'low \u2014 non-trending confirmed'. This explicit confirmation of non-trending conditions takes precedence for regime classification. Therefore, the market regime is Sideways/Ranging.\n\nSTEP 2 \u2014 STRATEGY SELECTION:\n1. Volatility Breakout Scalping: This strategy's regime is 'Volatile'. The current market regime is Sideways/Ranging. This is a regime mismatch, so the strategy is discarded.\n2. VWAP and Stochastic Oscillator Micro-Reversion: This strategy's regime is also 'Volatile'. The current market regime is Sideways/Ranging. This is a regime mismatch, so the strategy is discarded.\nNeither strategy fits the current Sideways/Ranging regime. Therefore, 'fallback' is selected.\n\nSTEP 3 \u2014 CONFLUENCE CHECK:\nNot applicable as 'fallback' was selected.\n\nSTEP 4 \u2014 SIGNAL DECISION:\nGiven that the market regime is Sideways/Ranging and no suitable strategy was identified, the default signal is HOLD. The rule 'Sideways regime \u2192 default to HOLD unless confluence is clear' applies here, and there is no confluence.",
+      "entry_condition": "",
+      "exit_condition": "",
+      "valid_till": "2026-04-29T16:55:55Z",
+      "asset_name": "BTC/USDT"
+    },
+    "risk": {
+      "asset_name": "BTC/USDT",
+      "signal": "HOLD",
+      "entry_condition": "",
+      "exit_condition": "",
+      "target": 0.0,
+      "stop_loss": 0.0,
+      "position_size": 0.0,
+      "timeframe": "4h",
+      "audit_summary": "[CONSERVATIVE] BTC/USDT | ANALYST: HOLD \u2192 FINAL: HOLD\nSTRATEGY: fallback | CONF: 0.00\nENTRY: 71831.46 | SL: 0.0000 | TP: OPEN (profits run) | SIZE: $0.00\nRSI: 63.2 | ATR: 1184.88 | SENTIMENT: 0.50\nVETOES: Analyst issued HOLD.",
+      "valid_until": "2026-04-29T16:56:03Z"
+    }
+  },
+  "2026-03-14T00:00:00+00:00": {
+    "signal": {
+      "signal": "HOLD",
+      "confidence": 0.4,
+      "strategy_used": "fallback",
+      "reasoning": "The market is in a low volatility, non-trending (sideways/ranging) regime despite an underlying uptrend, as confirmed by the low ATR/Price (1.553%). While price is above the increasing EMA(20) (70627.43), RSI is decreasing (56.1) and volume is below average (3513.45), indicating a lack of strong conviction. No clear entry conditions for either mean-reversion or trend-following strategies are met, leading to a HOLD signal.",
+      "internal_monologue": "STEP 1 \u2014 REGIME CHECK:\nThe market structure is indicated as an \"Uptrend\" (50-Day: 0.27%, 10-Day: 1.06%). However, the \"ATR/Price: 1.553% (low \u2014 non-trending confirmed)\" explicitly overrides this, confirming a non-trending, low volatility environment. The RSI trend is decreasing, and volume is below average. Therefore, the market regime is Sideways/Ranging.\n\nSTEP 2 \u2014 STRATEGY SELECTION:\nNo specific strategies were provided, so I will consider standard institutional mean-reversion or trend-following logic. Given the \"Sideways/Ranging\" regime (non-trending confirmed), a mean-reversion strategy is generally more appropriate than trend-following.\nLet's consider a simple mean-reversion strategy: BUY when price is in the lower half of Bollinger Bands and RSI is oversold (<30).\nCurrent market conditions: Price (71081.3) is in the Upper Half of Bollinger Bands (L: 68904.13, U: 72163.09). RSI is 56.1, which is neutral, not oversold. Thus, the entry conditions for a mean-reversion BUY are not met. A trend-following strategy would also be conflicted by the \"non-trending confirmed\" status. Since no strategy's entry conditions are met, I will use \"fallback\".\n\nSTEP 3 \u2014 CONFLUENCE CHECK:\nThe market is in a low volatility, non-trending state (ATR/Price 1.553%). While the EMA(20) slope is increasing and price is above EMA(20) (70627.43), which is bullish, the RSI is decreasing (from 55.02 to 56.1, but the trend is decreasing) and volume (3513.45) is below average (4202.88). Stochastic is neutral at 39.84. Price is in the upper half of Bollinger Bands but not at the upper extreme. There is no clear confluence for either a BUY or SELL signal.\n\nSTEP 4 \u2014 SIGNAL DECISION:\nThe market is in a Sideways/Ranging regime. No clear entry conditions for a mean-reversion or trend-following strategy are met. There are conflicting indicators (EMA bullish, but RSI decreasing, low volume, and non-trending confirmed). According to the rules, for a Sideways regime, I default to HOLD unless confluence is clear, which it is not. Therefore, the signal is HOLD.",
+      "entry_condition": "price > 20_candle_high or (price < bb_lower * 1.01 and rsi < 30)",
+      "exit_condition": "price < ema_20 * 0.99 or rsi > 70",
+      "valid_till": "2026-04-30T10:34:53Z",
+      "asset_name": "BTC/USDT"
+    },
+    "risk": {
+      "asset_name": "BTC/USDT",
+      "signal": "HOLD",
+      "entry_condition": "price > 20_candle_high or (price < bb_lower * 1.01 and rsi < 30)",
+      "exit_condition": "price < ema_20 * 0.99 or rsi > 70",
+      "target": 0.0,
+      "stop_loss": 0.0,
+      "position_size": 0.0,
+      "timeframe": "4h",
+      "audit_summary": "[CONSERVATIVE] BTC/USDT | ANALYST: HOLD \u2192 FINAL: HOLD\nSTRATEGY: fallback | CONF: 0.40\nENTRY: 71081.3 | SL: 0.0000 | TP: OPEN (profits run) | SIZE: $0.00\nRSI: 56.1 | ATR: 1103.93 | SENTIMENT: 0.50\nVETOES: Analyst issued HOLD.",
+      "valid_until": "2026-04-30T10:35:13Z"
+    }
+  },
+  "2026-03-14T04:00:00+00:00": {
+    "signal": {
+      "signal": "HOLD",
+      "confidence": 0.0,
+      "strategy_used": "fallback",
+      "reasoning": "The market is in a Sideways/Ranging regime, confirmed by low ATR/Price (1.549%). Neither oversold nor overbought conditions are present, with Stochastic at 29.54 and Price in the upper half of Bollinger Bands, indicating no clear mean-reversion entry.",
+      "internal_monologue": "STEP 1 \u2014 REGIME CHECK: The market structure indicates an \"Uptrend\", but the \"ATR/Price: 1.549% (low \u2014 non-trending confirmed)\" explicitly confirms a non-trending environment. This suggests a Sideways/Ranging regime within a broader uptrend. I will classify it as Sideways/Ranging.\nSTEP 2 \u2014 STRATEGY SELECTION: No specific strategies were provided, so I consider standard institutional logic. Given the Sideways/Ranging regime, a mean-reversion strategy is appropriate. For a mean-reversion BUY, I would look for oversold conditions (e.g., Stochastic < 20 or Price near lower Bollinger Band). The current Stochastic is 29.54, which is not oversold. The Price (70596.68) is in the Upper Half of the Bollinger Bands (Lower: 68958.73, Upper: 72173.29), not near the lower band. For a mean-reversion SELL, I would look for overbought conditions (e.g., Stochastic > 80 or Price near upper Bollinger Band). Neither of these conditions are met. Since no strong primary entry condition is met for either direction, I select \"fallback\".\nSTEP 3 \u2014 CONFLUENCE CHECK: As \"fallback\" was chosen, there are no specific entry_confirmation conditions. However, evaluating general mean-reversion conditions: Stochastic (29.54) is not oversold (<20) nor overbought (>80). Price (70596.68) is not near the lower Bollinger Band (68958.73) for a buy, nor near the upper Bollinger Band (72173.29) for a sell. RSI (51.8) is neutral. No clear confluence for a trade.\nSTEP 4 \u2014 SIGNAL DECISION: The regime is Sideways/Ranging. No strong entry conditions are met for a mean-reversion strategy. The general rule for a Sideways regime is to default to HOLD unless confluence is clear, which it is not. Therefore, the signal is HOLD.",
+      "entry_condition": "stochastic_current < 20 and price <= bb_lower * 1.01",
+      "exit_condition": "stochastic_current > 80 or price >= ema_20 * 1.01 or price < stop_loss",
+      "valid_till": "2026-04-30T10:35:13Z",
+      "asset_name": "BTC/USDT"
+    },
+    "risk": {
+      "asset_name": "BTC/USDT",
+      "signal": "HOLD",
+      "entry_condition": "stochastic_current < 20 and price <= bb_lower * 1.01",
+      "exit_condition": "stochastic_current > 80 or price >= ema_20 * 1.01 or price < stop_loss",
+      "target": 0.0,
+      "stop_loss": 0.0,
+      "position_size": 0.0,
+      "timeframe": "4h",
+      "audit_summary": "[CONSERVATIVE] BTC/USDT | ANALYST: HOLD \u2192 FINAL: HOLD\nSTRATEGY: fallback | CONF: 0.00\nENTRY: 70596.68 | SL: 0.0000 | TP: OPEN (profits run) | SIZE: $0.00\nRSI: 51.8 | ATR: 1093.44 | SENTIMENT: 0.50\nVETOES: Analyst issued HOLD.",
+      "valid_until": "2026-04-30T10:35:34Z"
+    }
+  },
+  "2026-03-14T08:00:00+00:00": {
+    "signal": {
+      "signal": "HOLD",
+      "confidence": 0.4,
+      "strategy_used": "fallback",
+      "reasoning": "The market is in a clear sideways/ranging regime, confirmed by the market structure and low ATR/Price (1.517%). Price is currently in the upper half of the Bollinger Bands, and momentum indicators (RSI 53.04, Stochastic 32.83) are neutral, not indicating oversold or overbought conditions for a mean-reversion entry. Therefore, there is no clear signal to buy or sell.",
+      "internal_monologue": "STEP 1 \u2014 REGIME CHECK: The market structure is explicitly \"Sideways/Ranging\" with a low ATR/Price of 1.517%, confirming a non-trending environment. The 50-Day and 10-Day changes are also minimal (-0.43% and 0.3% respectively). \nSTEP 2 \u2014 STRATEGY SELECTION: No specific strategies were provided, so I considered standard mean-reversion logic, which is appropriate for a Sideways/Ranging regime. A typical mean-reversion buy entry would require price near the lower Bollinger Band and oversold indicators. The current price (70751.42) is in the Upper Half of the Bollinger Bands (L: 69086.45, U: 72165.52), not near the lower band. The RSI (53.04) and Stochastic (32.83) are not oversold. Therefore, no primary entry condition for a mean-reversion BUY is triggered. Similarly, no conditions for a SELL are met as price is not near the upper band and indicators are not overbought. I will use \"fallback\".\nSTEP 3 \u2014 CONFLUENCE CHECK: For a mean-reversion BUY, conditions like price near lower Bollinger Band, RSI < 30, and Stochastic < 20 would be checked. None of these are met: Price is in the upper half of the bands, RSI is 53.04, and Stochastic is 32.83.\nSTEP 4 \u2014 SIGNAL DECISION: The regime is Sideways. No strong entry conditions are met for either a BUY or SELL signal. In a sideways regime, the default action is HOLD unless there is clear confluence for a specific direction, which is not the case here.",
+      "entry_condition": "price <= 69086.45 * 1.01 and rsi < 30 and stochastic < 20",
+      "exit_condition": "price >= 70636.59 or rsi > 70 or price < stop_loss",
+      "valid_till": "2026-04-30T10:35:34Z",
+      "asset_name": "BTC/USDT"
+    },
+    "risk": {
+      "asset_name": "BTC/USDT",
+      "signal": "HOLD",
+      "entry_condition": "price <= 69086.45 * 1.01 and rsi < 30 and stochastic < 20",
+      "exit_condition": "price >= 70636.59 or rsi > 70 or price < stop_loss",
+      "target": 0.0,
+      "stop_loss": 0.0,
+      "position_size": 0.0,
+      "timeframe": "4h",
+      "audit_summary": "[CONSERVATIVE] BTC/USDT | ANALYST: HOLD \u2192 FINAL: HOLD\nSTRATEGY: fallback | CONF: 0.40\nENTRY: 70751.42 | SL: 0.0000 | TP: OPEN (profits run) | SIZE: $0.00\nRSI: 53.0 | ATR: 1073.07 | SENTIMENT: 0.50\nVETOES: Analyst issued HOLD.",
+      "valid_until": "2026-04-30T10:35:47Z"
+    }
+  },
+  "2026-03-14T12:00:00+00:00": {
+    "signal": {
+      "signal": "BUY",
+      "confidence": 0.9,
+      "strategy_used": "Bollinger Band Mean Reversion with Stochastic Confirmation",
+      "reasoning": "The market is in a Sideways/Ranging regime, confirmed by low ATR/Price. Price is in the lower half of the Bollinger Bands, and the Stochastic Oscillator is in oversold territory (26.87), indicating a strong mean-reversion opportunity. All confluence conditions are met.",
+      "internal_monologue": "STEP 1 \u2014 REGIME CHECK: The market structure indicates a \"Downtrend\" but the \"ATR/Price: 1.435% (low \u2014 non-trending confirmed)\" explicitly confirms a non-trending environment. The price is within the Bollinger Bands and in the lower half. Therefore, the regime is Sideways/Ranging.\n\nSTEP 2 \u2014 STRATEGY SELECTION: No specific strategies were provided, so I will use a standard Bollinger Band Mean Reversion strategy with Stochastic confirmation, which is suitable for a Sideways/Ranging regime. The primary entry condition for this strategy is price in the lower half of Bollinger Bands and Stochastic indicating oversold conditions. The current price (70580.09) is in the lower half of the Bollinger Bands (L: 69199.24, U: 72145.91) and the Stochastic Oscillator is 26.87, which is oversold. There are no explicit conflicts.\n\nSTEP 3 \u2014 CONFLUENCE CHECK:\n1. Price in lower half of Bollinger Bands: YES (Price 70580.09 is in Lower Half).\n2. Stochastic Oscillator in oversold territory (<30): YES (Stochastic: 26.87).\n3. RSI not extremely oversold: YES (RSI Current 51.46 is neutral).\n4. Volume not spiking: YES (VOLUME Spike: False).\n5. ATR/Price confirms non-trending: YES (ATR/Price: 1.435% (low \u2014 non-trending confirmed)).\nAll five entry confirmation conditions are met.\n\nSTEP 4 \u2014 SIGNAL DECISION: All entry confirmation conditions are met, indicating a strong confluence for a mean-reversion buy signal. Despite the sideways regime, the clear confluence allows for a BUY signal.",
+      "entry_condition": "price < (bb_upper + bb_lower) / 2 and stochastic < 30",
+      "exit_condition": "price > (bb_upper + bb_lower) / 2 or stochastic > 70 or price < stop_loss",
+      "valid_till": "2026-04-30T10:35:47Z",
+      "asset_name": "BTC/USDT"
+    },
+    "risk": {
+      "asset_name": "BTC/USDT",
+      "signal": "BUY",
+      "entry_condition": "price < (bb_upper + bb_lower) / 2 and stochastic < 30",
+      "exit_condition": "price > (bb_upper + bb_lower) / 2 or stochastic > 70 or price < stop_loss",
+      "target": 70580.09,
+      "stop_loss": 68553.93,
+      "position_size": 1500.0,
+      "timeframe": "4h",
+      "audit_summary": "[CONSERVATIVE] BTC/USDT | ANALYST: BUY \u2192 FINAL: BUY\nSTRATEGY: Bollinger Band Mean Reversion with Stochastic Confirmation | CONF: 0.90\nENTRY: 70580.09 | SL: 68553.9300 | TP: 70580.0900 | SIZE: $1500.00\nRSI: 51.5 | ATR: 1013.08 | SENTIMENT: 0.50\nSTATUS: All checks passed.",
+      "valid_until": "2026-04-30T10:35:59Z"
+    }
+  },
+  "2026-03-13T16:00:00+00:00": {
+    "signal": {
+      "signal": "SELL",
+      "confidence": 0.5,
+      "strategy_used": "Mean-Reversion (Bollinger Bands + RSI)",
+      "reasoning": "The market is confirmed to be in a Sideways/Ranging regime due to low ATR/Price (1.588%). Price is currently in the upper half of the Bollinger Bands (71189.95) and RSI is decreasing (57.28 from 63.21), indicating a potential reversion to the mean. All conditions for a mean-reversion sell signal are met.",
+      "internal_monologue": "STEP 1 \u2014 REGIME CHECK: The market structure indicates an \"Uptrend\", but the ATR/Price is 1.588%, which is explicitly annotated as \"low \u2014 non-trending confirmed\". The authoritative annotation overrides the general structure label. Therefore, the market regime is Sideways/Ranging.\n\nSTEP 2 \u2014 STRATEGY SELECTION: No specific strategies were provided, so I will use standard institutional logic. Given the Sideways/Ranging regime, a mean-reversion strategy is most appropriate. I will consider a \"Sell the top of the range\" mean-reversion strategy. This strategy matches the Sideways/Ranging regime. The current market conditions (Price 71189.95 in the upper half of Bollinger Bands U: 72157.82, L: 68847.24, and RSI decreasing from 63.21 to 57.28) trigger a potential entry. There are no explicit conflicts.\n\nSTEP 3 \u2014 CONFLUENCE CHECK:\n1. Price in upper half of Bollinger Bands: YES (71189.95 > (72157.82 + 68847.24)/2 = 70502.53).\n2. RSI decreasing: YES (Current 57.28 < Prev 63.21).\n3. RSI not oversold (above 50 for sell): YES (57.28 > 50).\n4. Market is Sideways/Ranging: YES (ATR/Price 1.588% confirms non-trending).\n5. Price below upper Bollinger Band: YES (71189.95 < 72157.82).\nAll entry_confirmation conditions are met.\n\nSTEP 4 \u2014 SIGNAL DECISION: All confluence conditions for a mean-reversion SELL are met. The price is in the upper half of the Bollinger Band, RSI is decreasing, and the market is confirmed non-trending. This strongly suggests a move back towards the mean. Therefore, a SELL signal is appropriate.",
+      "entry_condition": "price > (bb_upper + bb_lower) / 2 and price < bb_upper and rsi_current < rsi_prev and rsi_current > 50",
+      "exit_condition": "price <= (bb_upper + bb_lower) / 2 or price >= bb_upper or rsi_current < 30",
+      "valid_till": "2026-04-30T10:40:52Z",
+      "asset_name": "BTC/USDT"
+    },
+    "risk": {
+      "asset_name": "BTC/USDT",
+      "signal": "SELL",
+      "entry_condition": "price > (bb_upper + bb_lower) / 2 and price < bb_upper and rsi_current < rsi_prev and rsi_current > 50",
+      "exit_condition": "price <= (bb_upper + bb_lower) / 2 or price >= bb_upper or rsi_current < 30",
+      "target": 71189.95,
+      "stop_loss": 73451.33,
+      "position_size": 1500.0,
+      "timeframe": "4h",
+      "audit_summary": "[CONSERVATIVE] BTC/USDT | ANALYST: SELL \u2192 FINAL: SELL\nSTRATEGY: Mean-Reversion (Bollinger Bands + RSI) | CONF: 0.50\nENTRY: 71189.95 | SL: 73451.3300 | TP: 71189.9500 | SIZE: $1500.00\nRSI: 57.3 | ATR: 1130.69 | SENTIMENT: 0.50\nSTATUS: All checks passed.",
+      "valid_until": "2026-04-30T10:41:08Z"
+    }
+  },
+  "2026-03-13T20:00:00+00:00": {
+    "signal": {
+      "signal": "HOLD",
+      "confidence": 0.5,
+      "strategy_used": "fallback",
+      "reasoning": "No specific strategies were provided, so the analysis defaults to observing the current market structure and indicator positions. The price is currently contained within the Bollinger Bands, suggesting consolidation within the established uptrend.",
+      "internal_monologue": "STEP 1 \u2014 REGIME CHECK: The structure indicates an 'Uptrend' (50-Day: 0.02%, 10-Day: 0.71%), suggesting a mild trending environment, but the volatility metrics (ATR/Price: 1.569% and 'low \u2014 non-trending confirmed') suggest low volatility. I will treat this as a mild trend/sideways context for strategy selection.\n\nSTEP 2 \u2014 STRATEGY SELECTION: Since no specific strategies were retrieved, I must default to standard logic. The market structure is 'Uptrend', and the RSI is 55.02, which is neutral. The ATR/Price is low, confirming the 'non-trending confirmed' note. Given the lack of explicit strategy candidates, I will default to a mean-reversion approach, as the price is currently inside the Bollinger Bands.\n\nSTEP 3 \u2014 CONFLUENCE CHECK: Since no strategy was explicitly chosen, this step is skipped for a specific strategy. I will proceed with the default logic.\n\nSTEP 4 \u2014 SIGNAL DECISION: The market is in an uptrend, but volatility is low. The price is within the Bollinger Bands. This suggests a HOLD position, waiting for a clear breakout or consolidation.\n\nSTEP 5 \u2014 SYNTHESIZE CONDITIONS: Since no specific strategy was used, the conditions are derived from the observation that the price is currently contained within the Bollinger Bands.\n\nSTEP 6 \u2014 WRITE YOUR OUTPUT: The final output will reflect the HOLD decision based on the lack of strong directional signals.",
+      "entry_condition": "N/A",
+      "exit_condition": "rsi > 70 or price < stop_loss or price > target",
+      "valid_till": "2026-04-30T10:41:08Z",
+      "asset_name": "BTC/USDT"
+    },
+    "risk": {
+      "asset_name": "BTC/USDT",
+      "signal": "HOLD",
+      "entry_condition": "N/A",
+      "exit_condition": "rsi > 70 or price < stop_loss or price > target",
+      "target": 0.0,
+      "stop_loss": 0.0,
+      "position_size": 0.0,
+      "timeframe": "4h",
+      "audit_summary": "[CONSERVATIVE] BTC/USDT | ANALYST: HOLD \u2192 FINAL: HOLD\nSTRATEGY: fallback | CONF: 0.50\nENTRY: 70930.0 | SL: 0.0000 | TP: OPEN (profits run) | SIZE: $0.00\nRSI: 55.0 | ATR: 1113.21 | SENTIMENT: 0.50\nVETOES: Analyst issued HOLD.",
+      "valid_until": "2026-04-30T10:42:24Z"
+    }
+  },
+  "2024-05-13T00:00:00+00:00": {
+    "signal": {
+      "signal": "BUY",
+      "confidence": 0.5,
+      "strategy_used": "Bollinger Band Mean Reversion (Sideways)",
+      "reasoning": "The market is in a confirmed sideways/ranging regime, with a low ATR/Price (0.934%). Price (61170.0) is in the lower half of the Bollinger Bands and below the EMA(20), while RSI (45.54) and Stochastic (49.83) are neutral, indicating potential for mean reversion upwards.",
+      "internal_monologue": "STEP 1 \u2014 REGIME CHECK: The market structure is labeled \"Uptrend\" but the ATR/Price is 0.934%, explicitly annotated as \"low \u2014 non-trending confirmed\". The 50-Day change is negative (-4.26%) and 10-Day change is almost flat (-0.01%). Price (61170.0) is below EMA(20) (61405.55) and within the Bollinger Bands, in the lower half. These indicators strongly suggest a Sideways/Ranging regime.\n\nSTEP 2 \u2014 STRATEGY SELECTION: No specific strategies were provided, so I'm using standard institutional logic. Given the Sideways/Ranging regime, a mean-reversion strategy is appropriate. I've selected a \"Bollinger Band Mean Reversion (Sideways)\" strategy, which aims to buy near the lower band and sell near the upper band in a non-trending market. This strategy's regime matches the current market.\n\nSTEP 3 \u2014 CONFLUENCE CHECK:\n1. Price in lower half of Bollinger Bands: YES (Price 61170.0 is between EMA 61405.55 and Lower Band 59719.14)\n2. RSI not overbought: YES (RSI 45.54 is below 70)\n3. Stochastic not overbought: YES (Stochastic 49.83 is below 80)\n4. ATR/Price confirms non-trending: YES (ATR/Price 0.934% is low, confirming non-trending)\n5. Volume not spiking: YES (Volume Spike: False)\nAll five conditions are met.\n\nSTEP 4 \u2014 SIGNAL DECISION: All confluence conditions for a mean-reversion BUY signal are met. The price is in the lower half of the Bollinger Bands, RSI and Stochastic are neutral, and the market is confirmed non-trending. Therefore, a BUY signal is generated.",
+      "entry_condition": "price < ema_20 and price > bb_lower and rsi < 70 and stochastic < 80",
+      "exit_condition": "price >= bb_upper or price < bb_lower * 0.99",
+      "valid_till": "2026-04-30T14:08:09Z",
+      "asset_name": "BTC/USDT"
+    },
+    "risk": {
+      "asset_name": "BTC/USDT",
+      "signal": "BUY",
+      "entry_condition": "price < ema_20 and price > bb_lower and rsi < 70 and stochastic < 80",
+      "exit_condition": "price >= bb_upper or price < bb_lower * 0.99",
+      "target": 61170.0,
+      "stop_loss": 60027.46,
+      "position_size": 1500.0,
+      "timeframe": "4h",
+      "audit_summary": "[CONSERVATIVE] BTC/USDT | ANALYST: BUY \u2192 FINAL: BUY\nSTRATEGY: Bollinger Band Mean Reversion (Sideways) | CONF: 0.50\nENTRY: 61170.0 | SL: 60027.4600 | TP: 61170.0000 | SIZE: $1500.00\nRSI: 45.5 | ATR: 571.27 | SENTIMENT: 0.50\nSTATUS: All checks passed.",
+      "valid_until": "2026-04-30T14:08:27Z"
+    }
+  },
+  "2025-10-24T20:00:00+00:00": {
+    "signal": {
+      "signal": "HOLD",
+      "confidence": 0.45,
+      "strategy_used": "fallback",
+      "reasoning": "No specific strategy was provided, so the analysis defaults to observing the provided technical overlays. The market is in an established Uptrend with low volatility, and the price is currently touching the upper Bollinger Band, suggesting a potential pause or rejection rather than a clear breakout signal.",
+      "internal_monologue": "STEP 1 \u2014 REGIME CHECK: The structure indicates an Uptrend (50-Day: 2.59%, 10-Day: 1.6%), but the volatility metric (ATR/Price: 1.139%) is low, and the VOLUME Spike is False. This suggests a Sideways/Ranging or low-volatility trend environment, leaning towards Sideways for entry decisions.\n\nSTEP 2 \u2014 STRATEGY SELECTION: Since no specific strategies were retrieved, I will default to analyzing the provided data for mean-reversion or trend-following signals. The Bollinger Band annotation explicitly points to a potential rejection zone: \"Price (111004.89) is at or near BB Upper (112033.67) \u2014 potential rejection zone.\" The RSI (57.4) is in the middle range, and the Stochastic (79.77) is high, suggesting momentum is strong but potentially overbought.\n\nSTEP 3 \u2014 CONFLUENCE CHECK: I will evaluate a hypothetical mean-reversion strategy based on the BB touch.\n\nEntry Confirmation Check (Hypothetical Mean Reversion): The price is near the upper Bollinger Band (111004.89 vs Upper BB 112033.67). This suggests a potential SELL signal if mean reversion is expected.\n\nSTEP 4 \u2014 SIGNAL DECISION: Given the low volatility and the price being near a resistance level (BB upper), a SELL signal based on mean reversion is plausible. However, the instruction states: \"Sideways regime \u2192 default to HOLD unless confluence is clear.\" Since the trend is technically Up, and the market structure is Uptrend, a strong reversal signal is needed. The current state is ambiguous.\n\nSTEP 5 \u2014 SYNTHESIZE CONDITIONS: I will formulate conditions based on the observed proximity to the BB upper band.\n\nSTEP 6 \u2014 WRITE YOUR OUTPUT: I will select a HOLD signal due to insufficient confluence for a strong directional trade, adhering to the rule that Sideways defaults to HOLD unless clear.\n\nMetrics cited: Price (111004.89), RSI (57.4), ATR/Price (1.139%).",
+      "entry_condition": "price < bb_lower * 1.01",
+      "exit_condition": "rsi > 70 or price > target",
+      "valid_till": "2026-04-30T14:09:14Z",
+      "asset_name": "BTC/USDT"
+    },
+    "risk": {
+      "asset_name": "BTC/USDT",
+      "signal": "HOLD",
+      "entry_condition": "price < bb_lower * 1.01",
+      "exit_condition": "rsi > 70 or price > target",
+      "target": 0.0,
+      "stop_loss": 0.0,
+      "position_size": 0.0,
+      "timeframe": "4h",
+      "audit_summary": "[CONSERVATIVE] BTC/USDT | ANALYST: HOLD \u2192 FINAL: HOLD\nSTRATEGY: fallback | CONF: 0.45\nENTRY: 111004.89 | SL: 0.0000 | TP: OPEN (profits run) | SIZE: $0.00\nRSI: 57.4 | ATR: 1264.4 | SENTIMENT: 0.50\nVETOES: Analyst issued HOLD.",
+      "valid_until": "2026-04-30T14:10:15Z"
+    }
+  },
+  "2025-10-25T00:00:00+00:00": {
+    "signal": {
+      "signal": "SELL",
+      "confidence": 0.5,
+      "strategy_used": "Mean Reversion (Sell at Overbought)",
+      "reasoning": "The market is showing clear signs of short-term exhaustion within a weak uptrend. Price is at the upper Bollinger Band (111029.99 near 111879.05), and the Stochastic Oscillator is in an overbought exhaustion zone (80.23). This confluence suggests a high probability of a short-term mean reversion downwards.",
+      "internal_monologue": "STEP 1 \u2014 REGIME CHECK: The market structure indicates an Uptrend (50-Day: 2.62%, 10-Day: 1.02%). However, the ATR/Price is low at 1.08%, explicitly confirming a non-trending environment. Additionally, the price is at or near the Bollinger Band Upper (111029.99 vs 111879.05), which is a potential rejection zone, and the Stochastic Oscillator is in an overbought exhaustion zone at 80.23. These conflicting signals, particularly the explicit 'non-trending confirmed' and exhaustion indicators, lead me to classify the current regime as Sideways/Weak Uptrend, with a strong emphasis on the non-trending aspect for immediate action.\n\nSTEP 2 \u2014 STRATEGY SELECTION: No specific strategies were provided, so I will use standard institutional logic. Given the 'non-trending confirmed' by ATR, the overbought Stochastic (80.23), and price at the Bollinger Band Upper (111029.99 near 111879.05) indicating a potential rejection, a Mean Reversion (Sell at Overbought) strategy is the most suitable. This strategy aligns with the current market conditions showing exhaustion at a resistance level.\n\nSTEP 3 \u2014 CONFLUENCE CHECK:\n1. Price at or near upper Bollinger Band: YES. Price (111029.99) is at or near BB Upper (111879.05), confirmed as a potential rejection zone.\n2. Stochastic Oscillator in overbought zone: YES. Stochastic Oscillator is 80.23, explicitly marked as an overbought exhaustion zone.\n3. RSI: Current RSI is 57.53. While not overbought (>70), it is increasing, which doesn't conflict with a short-term reversal, but also doesn't strongly confirm it.\n4. Volume: Current volume (829.35) is significantly lower than the average (3704.38), which can support exhaustion at extremes.\nAll primary conditions for a mean-reversion sell are met.\n\nSTEP 4 \u2014 SIGNAL DECISION: The confluence for a Mean Reversion (Sell at Overbought) strategy is strong. Price is at a potential rejection zone (BB Upper), and momentum is overbought (Stochastic 80.23). Despite the underlying longer-term uptrend, the immediate signals point to a short-term reversal or consolidation. Given the explicit 'non-trending confirmed' and the strong exhaustion signals, a SELL signal for a short-term mean reversion is warranted. Due to the Sideways/Weak Uptrend regime classification, confidence will be capped at 0.5.",
+      "entry_condition": "price >= 111879.05 * 0.99 and stochastic > 80.0 and volume < 3704.38",
+      "exit_condition": "price < 109993.61 or price > 112438.44",
+      "valid_till": "2026-04-30T14:10:15Z",
+      "asset_name": "BTC/USDT"
+    },
+    "risk": {
+      "asset_name": "BTC/USDT",
+      "signal": "SELL",
+      "entry_condition": "price >= 111879.05 * 0.99 and stochastic > 80.0 and volume < 3704.38",
+      "exit_condition": "price < 109993.61 or price > 112438.44",
+      "target": 111029.99,
+      "stop_loss": 113428.09,
+      "position_size": 1500.0,
+      "timeframe": "4h",
+      "audit_summary": "[CONSERVATIVE] BTC/USDT | ANALYST: SELL \u2192 FINAL: SELL\nSTRATEGY: Mean Reversion (Sell at Overbought) | CONF: 0.50\nENTRY: 111029.99 | SL: 113428.0900 | TP: 111029.9900 | SIZE: $1500.00\nRSI: 57.5 | ATR: 1199.05 | SENTIMENT: 0.50\nSTATUS: All checks passed.",
+      "valid_until": "2026-04-30T14:10:36Z"
+    }
+  },
+  "2025-10-25T04:00:00+00:00": {
+    "signal": {
+      "signal": "HOLD",
+      "confidence": 0.5,
+      "strategy_used": "fallback",
+      "reasoning": "The market is currently in an established Uptrend, but the price is testing the upper Bollinger Band, indicating potential short-term consolidation or rejection. No specific strategy rules were provided, so a neutral HOLD signal is appropriate.",
+      "internal_monologue": "STEP 1 \u2014 REGIME CHECK: The structure indicates an Uptrend (50-Day: 2.12%, 10-Day: 1.17%), suggesting a Trending regime. \nSTEP 2 \u2014 STRATEGY SELECTION: Since no specific strategies were retrieved, I will default to trend-following logic, as the market is explicitly trending. The market context shows the price is near the Bollinger Band Upper (Price 111489.6 vs BB Upper 112136.82), which suggests a potential pullback or rejection. \nSTEP 3 \u2014 CONFLUENCE CHECK: No specific strategy conditions exist to check confluence against. I will rely on the observed technical setup.\nSTEP 4 \u2014 SIGNAL DECISION: The market is trending, but the price is touching the upper Bollinger Band, which is a potential reversal signal. Given the lack of explicit strategy rules, I will lean towards HOLD, waiting for confirmation of a breakout or breakdown.\nSTEP 5 \u2014 SYNTHESIZE CONDITIONS: Since no formal strategy was selected, the entry/exit conditions will be based on the observed technical levels.\nSTEP 6 \u2014 WRITE YOUR OUTPUT: The analysis points to a state of potential consolidation near an uptrend boundary.",
+      "entry_condition": "N/A",
+      "exit_condition": "rsi > 70 or price < stop_loss or price > target",
+      "valid_till": "2026-04-30T14:10:36Z",
+      "asset_name": "BTC/USDT"
+    },
+    "risk": {
+      "asset_name": "BTC/USDT",
+      "signal": "HOLD",
+      "entry_condition": "N/A",
+      "exit_condition": "rsi > 70 or price < stop_loss or price > target",
+      "target": 0.0,
+      "stop_loss": 0.0,
+      "position_size": 0.0,
+      "timeframe": "4h",
+      "audit_summary": "[CONSERVATIVE] BTC/USDT | ANALYST: HOLD \u2192 FINAL: HOLD\nSTRATEGY: fallback | CONF: 0.50\nENTRY: 111489.6 | SL: 0.0000 | TP: OPEN (profits run) | SIZE: $0.00\nRSI: 59.9 | ATR: 1166.02 | SENTIMENT: 0.50\nVETOES: Analyst issued HOLD.",
+      "valid_until": "2026-04-30T14:11:09Z"
+    }
+  },
+  "2025-10-25T08:00:00+00:00": {
+    "signal": {
+      "signal": "SELL",
+      "confidence": 0.75,
+      "strategy_used": "Mean Reversion (Bollinger Band + Stochastic)",
+      "reasoning": "The market is in a clear sideways regime. Price is currently at the Bollinger Upper Band (111563.81 near 112360.62) and the Stochastic Oscillator is in the overbought exhaustion zone (85.59), indicating a high probability of mean reversion downwards. Volume is not spiking, supporting the range-bound behavior.",
+      "internal_monologue": "STEP 1 \u2014 REGIME CHECK: The market is explicitly stated as \"Sideways/Ranging\" with a low ATR/Price of 0.944%, confirming a Sideways regime.\n\nSTEP 2 \u2014 STRATEGY SELECTION: With no specific strategies provided and a Sideways regime, a Mean Reversion strategy is appropriate. I've defined a strategy based on Bollinger Bands and Stochastic Oscillator. The current market shows price (111563.81) at or near the Bollinger Upper Band (112360.62) and the Stochastic Oscillator at 85.59, which is an overbought exhaustion zone. There are no conflicts like strong trends or volume spikes (Volume Spike: False). This strategy fits well.\n\nSTEP 3 \u2014 CONFLUENCE CHECK:\n1. Regime is Sideways: YES.\n2. Price at or near Bollinger Upper Band: YES (Price 111563.81 is near BB Upper 112360.62, confirmed by annotation).\n3. Stochastic Oscillator is Overbought: YES (Stochastic is 85.59, in overbought zone).\n4. Volume is not spiking: YES (Volume Spike: False).\nAll key conditions for a SELL signal in a sideways mean-reversion context are met.\n\nSTEP 4 \u2014 SIGNAL DECISION: All primary entry conditions for a SELL signal are met, and there are no conflicting conditions. The confluence is clear. Therefore, the signal is SELL.",
+      "entry_condition": "market_structure == \"Sideways/Ranging\" and price >= bb_upper * 0.99 and stochastic > 80 and volume_spike == False",
+      "exit_condition": "price <= bb_lower * 1.01 or price > bb_upper * 1.01 or stochastic < 70",
+      "valid_till": "2026-04-30T14:11:09Z",
+      "asset_name": "BTC/USDT"
+    },
+    "risk": {
+      "asset_name": "BTC/USDT",
+      "signal": "HOLD",
+      "entry_condition": "market_structure == \"Sideways/Ranging\" and price >= bb_upper * 0.99 and stochastic > 80 and volume_spike == False",
+      "exit_condition": "price <= bb_lower * 1.01 or price > bb_upper * 1.01 or stochastic < 70",
+      "target": 0.0,
+      "stop_loss": 0.0,
+      "position_size": 0.0,
+      "timeframe": "4h",
+      "audit_summary": "[CONSERVATIVE] BTC/USDT | ANALYST: SELL \u2192 FINAL: HOLD\nSTRATEGY: Mean Reversion (Bollinger Band + Stochastic) | CONF: 0.75\nENTRY: 111563.81 | SL: 0.0000 | TP: OPEN (profits run) | SIZE: $0.00\nRSI: 60.2 | ATR: 1052.66 | SENTIMENT: 0.50\nVETOES: Regime veto: Conservative strategy triggered in Sideways regime. Forced HOLD.",
+      "valid_until": "2026-04-30T14:11:34Z"
+    }
+  },
+  "2025-10-25T12:00:00+00:00": {
+    "signal": {
+      "signal": "HOLD",
+      "confidence": 0.5,
+      "strategy_used": "fallback",
+      "reasoning": "The market is currently in a Sideways/Ranging regime, and the low ATR/Price% confirms low volatility and non-trending conditions. Therefore, no strong trend-following or breakout strategy is warranted; a neutral stance is appropriate.",
+      "internal_monologue": "STEP 1 \u2014 REGIME CHECK: The market regime is Sideways/Ranging, as explicitly stated in the STRUCTURE field. \nSTEP 2 \u2014 STRATEGY SELECTION: Since no specific strategies were retrieved, I will default to mean-reversion logic, which is often appropriate for sideways markets. The current regime is Sideways. I will evaluate potential strategies based on the Sideways condition.\n\nSTEP 3 \u2014 CONFLUENCE CHECK: Since no specific strategy was selected, this step is skipped for strategy confirmation. However, the market structure is Sideways/Ranging, and the ATR/Price% (0.933%) is low, confirming the non-trending nature.\n\nSTEP 4 \u2014 SIGNAL DECISION: Given the Sideways regime, the default signal is HOLD unless clear mean-reversion signals are present. The RSI (58.8) is near the middle, and the Stochastic (78.95) is high, suggesting momentum is stretched, but the overall structure is ranging.\n\nSTEP 5 \u2014 SYNTHESIZE CONDITIONS: Since no specific strategy was chosen, the entry/exit conditions will be based on general mean-reversion principles for a sideways market.\n\nSTEP 6 \u2014 WRITE YOUR OUTPUT: The analysis points towards a HOLD signal due to the ranging structure and moderate RSI.",
+      "entry_condition": "N/A",
+      "exit_condition": "rsi > 70 or price < stop_loss or price > target",
+      "valid_till": "2026-04-30T14:11:34Z",
+      "asset_name": "BTC/USDT"
+    },
+    "risk": {
+      "asset_name": "BTC/USDT",
+      "signal": "HOLD",
+      "entry_condition": "N/A",
+      "exit_condition": "rsi > 70 or price < stop_loss or price > target",
+      "target": 0.0,
+      "stop_loss": 0.0,
+      "position_size": 0.0,
+      "timeframe": "4h",
+      "audit_summary": "[CONSERVATIVE] BTC/USDT | ANALYST: HOLD \u2192 FINAL: HOLD\nSTRATEGY: fallback | CONF: 0.50\nENTRY: 111385.18 | SL: 0.0000 | TP: OPEN (profits run) | SIZE: $0.00\nRSI: 58.8 | ATR: 1039.47 | SENTIMENT: 0.50\nVETOES: Analyst issued HOLD.",
+      "valid_until": "2026-04-30T14:12:01Z"
+    }
+  }
+}

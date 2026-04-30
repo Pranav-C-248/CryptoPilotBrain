@@ -1,5 +1,6 @@
 import os
 import sys
+import ast
 import json
 import time
 import argparse
@@ -18,7 +19,8 @@ from src.core.knowledge_base import TradingKnowledgeBase
 from src.agents.analyst import AnalystAgent, MarketDataProcessor
 from src.agents.risk_manager import RiskManagerAgent
 from src.tools.indicators import add_indicators
-from src.schema.models import AnalystSignal, RiskAssessment
+from src.schema.models import AnalystSignal
+from src.agents.risk_manager import RiskAssessment
 
 CACHE_FILE = os.path.join(project_root, "data", "llm_cache.json")
 os.makedirs(os.path.join(project_root, "data"), exist_ok=True)
@@ -102,22 +104,101 @@ class BacktestEngine:
         return df
 
     def _evaluate_condition(self, condition_str: str, locals_dict: dict) -> bool:
-        """Evaluates a python string condition safely."""
-        if not condition_str or condition_str.lower() in ("true", "none"):
+        """Evaluates a simple comparison condition string safely using AST parsing.
+        
+        Supports expressions like 'RSI < 70', 'price > bb_lower * 1.01 and rsi < 30',
+        using only variables present in locals_dict.
+        """
+        if not condition_str or condition_str.lower() in ("true", "none", "n/a"):
             return True
         if condition_str.lower() in ("false",):
             return False
-            
+
         try:
-            result = eval(condition_str, {"__builtins__": {}}, locals_dict)
+            tree = ast.parse(condition_str, mode='eval')
+            result = self._safe_eval_node(tree.body, locals_dict)
             return bool(result)
         except Exception:
             return False
+
+    def _safe_eval_node(self, node: ast.AST, variables: dict):
+        """Recursively evaluate an AST node, allowing only safe operations."""
+        # Numeric / string / boolean constants
+        if isinstance(node, ast.Constant):
+            if isinstance(node.value, (int, float, bool, str)):
+                return node.value
+            raise ValueError(f"Disallowed constant type: {type(node.value)}")
+
+        # Variable lookup
+        if isinstance(node, ast.Name):
+            if node.id in variables:
+                return variables[node.id]
+            raise NameError(f"Unknown variable: {node.id}")
+
+        # Unary operators: -x, +x, not x
+        if isinstance(node, ast.UnaryOp):
+            operand = self._safe_eval_node(node.operand, variables)
+            if isinstance(node.op, ast.USub):
+                return -operand
+            if isinstance(node.op, ast.UAdd):
+                return +operand
+            if isinstance(node.op, ast.Not):
+                return not operand
+            raise ValueError(f"Disallowed unary op: {type(node.op).__name__}")
+
+        # Binary arithmetic: +, -, *, /, //
+        if isinstance(node, ast.BinOp):
+            left = self._safe_eval_node(node.left, variables)
+            right = self._safe_eval_node(node.right, variables)
+            ops = {
+                ast.Add: lambda a, b: a + b,
+                ast.Sub: lambda a, b: a - b,
+                ast.Mult: lambda a, b: a * b,
+                ast.Div: lambda a, b: a / b,
+                ast.FloorDiv: lambda a, b: a // b,
+            }
+            op_func = ops.get(type(node.op))
+            if op_func is None:
+                raise ValueError(f"Disallowed binary op: {type(node.op).__name__}")
+            return op_func(left, right)
+
+        # Comparisons: <, >, <=, >=, ==, !=
+        if isinstance(node, ast.Compare):
+            left = self._safe_eval_node(node.left, variables)
+            cmp_ops = {
+                ast.Lt: lambda a, b: a < b,
+                ast.LtE: lambda a, b: a <= b,
+                ast.Gt: lambda a, b: a > b,
+                ast.GtE: lambda a, b: a >= b,
+                ast.Eq: lambda a, b: a == b,
+                ast.NotEq: lambda a, b: a != b,
+            }
+            # Chained comparisons: a < b < c  →  a < b and b < c
+            for op, comparator in zip(node.ops, node.comparators):
+                right = self._safe_eval_node(comparator, variables)
+                op_func = cmp_ops.get(type(op))
+                if op_func is None:
+                    raise ValueError(f"Disallowed comparison: {type(op).__name__}")
+                if not op_func(left, right):
+                    return False
+                left = right
+            return True
+
+        # Boolean operators: and, or
+        if isinstance(node, ast.BoolOp):
+            if isinstance(node.op, ast.And):
+                return all(self._safe_eval_node(v, variables) for v in node.values)
+            if isinstance(node.op, ast.Or):
+                return any(self._safe_eval_node(v, variables) for v in node.values)
+            raise ValueError(f"Disallowed bool op: {type(node.op).__name__}")
+
+        raise ValueError(f"Disallowed AST node: {type(node).__name__}")
 
     def run(self, df: pd.DataFrame, limit: int = None):
         print("\n--- Starting Backtest Simulation ---")
         window = 55
         total_steps = len(df) - window
+        print(window,total_steps)
         if limit:
             total_steps = min(total_steps, limit)
             
@@ -142,6 +223,7 @@ class BacktestEngine:
             locals_dict['price'] = price
             
             # 1. Check Exits for Open Trades
+            # print("1 step")
             for trade in self.portfolio[:]:
                 exit_triggered = False
                 exit_reason = ""
@@ -165,11 +247,13 @@ class BacktestEngine:
                     print(f"  -> EXIT [{exit_reason}]: PnL ${pnl:.2f} | Balance: ${self.balance:.2f}")
             
             # 2. Get Context Packet
+            # print("2 step")
             packet = MarketDataProcessor.get_context_packet(df, i, window=window)
             if not packet: continue
             packet['asset_name'] = "BTC/USDT"
             
             # 3. Cache / Agent Cycle
+            print("3 step")
             if timestamp in self.cache:
                 print("  -> Using Cached LLM Output")
                 cache_data = self.cache[timestamp]
@@ -184,6 +268,7 @@ class BacktestEngine:
                         sentiment_score=0.5,
                         current_portfolio=self.portfolio
                     )
+                    print(signal,verdict)
                     
                     self.cache[timestamp] = {
                         "signal": signal.model_dump(),
@@ -199,21 +284,23 @@ class BacktestEngine:
                     continue
 
             # 4. Entry Execution
+            # print("4 step")
             if verdict.signal == "BUY":
                 # We only take ONE position at a time for simplicity in this backtest
                 if len(self.portfolio) == 0:
-                    pos_size = verdict.final_position_size
+                    pos_size = verdict.position_size
                     if pos_size > self.balance:
                         pos_size = self.balance # Constrain to balance
                         
                     if pos_size > 0:
                         self.balance -= pos_size
                         trade = {
+                            "asset_name": verdict.asset_name,
                             "entry_time": timestamp,
                             "entry_price": price,
                             "position_size": pos_size,
-                            "target": verdict.take_profit_price,
-                            "stop_loss": verdict.stop_loss_price,
+                            "target": verdict.target,
+                            "stop_loss": verdict.stop_loss,
                             "entry_condition": signal.entry_condition,
                             "exit_condition": signal.exit_condition
                         }
@@ -221,6 +308,7 @@ class BacktestEngine:
                         print(f"  -> ENTRY [BUY]: Size ${pos_size:.2f} @ ${price:.2f}")
 
         # Close all open positions at end of test to realize PnL
+        # print("ur mum")
         if self.portfolio:
             final_price = df.iloc[window + total_steps - 1]['close']
             final_time = df.iloc[window + total_steps - 1]['open_time'].isoformat()
@@ -333,6 +421,7 @@ if __name__ == "__main__":
     df = engine.fetch_historical_data(days=args.days)
     
     # 2. Run simulation
+    # print(df.head(10))
     engine.run(df, limit=args.limit)
     
     # 3. Results
