@@ -38,11 +38,11 @@ class MainDataAgent:
         try:
             for symbol in self.symbols:
                 print(f"Analyzing {symbol} (4h)...")
-                # Fetch latest 4h candle + 55 past = 56 candles. We fetch 60 to be safe for indicators.
-                df = self.client.get_historical_klines(symbol, "4h", limit=100)
+                # Fetch enough candles to support the 200 EMA + some padding
+                df = self.client.get_historical_klines(symbol, "4h", limit=250)
                 
-                # We need window=55 as requested
-                packet = MarketDataProcessor.get_context_packet(df, len(df)-1, window=55)
+                # We need window=200 for the new indicators
+                packet = MarketDataProcessor.get_context_packet(df, len(df)-1, window=200)
                 if not packet:
                     print(f"Not enough data for {symbol}.")
                     continue
