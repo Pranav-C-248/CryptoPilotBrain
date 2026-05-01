@@ -45,7 +45,6 @@
       ]
     }
   },
-  
   {
     "metadata": {
       "name": "Turtle Strategy (System 1 - 20-Day Breakout)",
@@ -133,7 +132,6 @@
       ]
     }
   },
-  
   {
     "metadata": {
       "name": "Bollinger Bands + RSI Extremes",
@@ -174,6 +172,153 @@
         "Bollinger Bands (40-period, 2 SD)",
         "RSI (5-period)",
         "ADX (14-period)"
+      ]
+    }
+  },
+  {
+    "metadata": {
+      "name": "200 MA Macro Pullback Accumulation",
+      "regime": "Trending"
+    },
+    "theory": {
+      "principle": "The 200 Moving Average is the ultimate metric for long-term fair value. When a strong macro trend undergoes a severe, fear-driven correction, dropping to an upward-sloping 200 MA, it hits maximum institutional demand. Big banks view the asset as fundamentally discounted but still within a structural bull regime.",
+      "market_inefficiency": "Exploiting news-driven fear cycles that force retail traders to liquidate 'weak hands' into the waiting bid-stack of 'smart money' algorithms stationed at the 200 MA.",
+      "crypto_adaptation": "Only use during confirmed bull market cycles (BTC above 200-week MA, rising). Use the 200-week MA rather than the 200-day for better cycle accuracy. A capitulation volume spike is mandatory to confirm — do not enter without it. The 200 MA fails more often in crypto than equities — treat this as a high-conviction discretionary trade, not a mechanical one.",
+      "synergy_markers": {
+        "works_well_with": [
+          "Capitulation Volume Spikes",
+          "Trend Confirmers",
+          "Crypto Fear & Greed Index (Extreme Fear readings)"
+        ],
+        "conflicts_with": [
+          "Downward sloping 200 MA",
+          "Short-term scalp mentalities",
+          "Crypto bear market conditions"
+        ]
+      }
+    },
+    "mechanics": {
+      "logic_gate": {
+        "entry_primary": [
+          "Place bids directly at or slightly above the 200 Moving Average during a severe market pullback.",
+          "BTC must be above the 200-week MA to confirm macro bull regime."
+        ],
+        "entry_confirmation": [
+          "The 200 MA remains distinctly upward sloping during the approach.",
+          "Capitulation volume spike present (2x+ the 20-day average).",
+          "Crypto Fear & Greed Index reads below 25 for at least 3 consecutive days."
+        ]
+      },
+      "exit_logic": {
+        "take_profit": "Liquidate at the 50% Fibonacci retracement of the macro drop, or hold for new trend highs.",
+        "exit condition": "Price slices through the 200 MA on high volume and fails to recover the level within 2-3 sessions."
+      }
+    },
+    "operational_meta": {
+      "risk_profile": "Conservative",
+      "crypto_score": 60,
+      "stock_score": 95,
+      "crypto_verdict": "Dangerous in crypto bear markets",
+      "dependency_indicators": [
+        "200 Simple/Exponential Moving Average",
+        "200-week MA",
+        "Volume",
+        "Crypto Fear & Greed Index"
+      ]
+    }
+  },
+  {
+    "metadata": {
+      "name": "Bottom Bollinger Band Mean Reversion",
+      "regime": "Trending"
+    },
+    "theory": {
+      "principle": "During a macro uptrend, the first violent micro sell-off will frequently snap to the bottom Bollinger Band. Since Bollinger Bands represent mathematical standard deviations of volatility, touching the bottom band in a healthy bull regime denotes maximum probable statistical extension, providing an asymmetric bounce entry.",
+      "market_inefficiency": "Exploiting temporary volatility overextension and fear-driven retail capitulation during a structurally healthy macro trend.",
+      "crypto_adaptation": "Only use during confirmed macro bull regime (BTC above 200-week MA). Bounces are sharper but shorter in crypto — take 60-70% profit at the mid-BB. Crypto wicks often pierce the band further before bouncing so widen the entry trigger slightly. Never use during crypto bear markets.",
+      "synergy_markers": {
+        "works_well_with": [
+          "Reversal Candlesticks (Wicks/Tails)",
+          "Overarching Bullish Moving Averages",
+          "Funding Rate Exhaustion signals"
+        ],
+        "conflicts_with": [
+          "Bearish Macro Trends",
+          "Breakout Momentum logic",
+          "Crypto bear markets"
+        ]
+      }
+    },
+    "mechanics": {
+      "logic_gate": {
+        "entry_primary": [
+          "Wait for price to touch or pierce the lower Bollinger Band during an established uptrend."
+        ],
+        "entry_confirmation": [
+          "Price prints a bottoming candle (long lower wick) or gaps up on the subsequent candle."
+        ]
+      },
+      "exit_logic": {
+        "take_profit": "Take partial profit (60-70%) at the Middle Bollinger Band; target the Upper Bollinger Band for the remainder.",
+        "exit condition": "Price closes firmly below the bottom Bollinger Band, continuing to push the band lower."
+      }
+    },
+    "operational_meta": {
+      "risk_profile": "Aggressive",
+      "crypto_score": 79,
+      "stock_score": 70,
+      "crypto_verdict": "Good in crypto bull regimes",
+      "dependency_indicators": [
+        "Bollinger Bands",
+        "Candlestick Patterns"
+      ]
+    }
+  },
+  {
+    "metadata": {
+      "name": "MA Twist & Convergence Continuation",
+      "regime": "Trending"
+    },
+    "theory": {
+      "principle": "In a mature trend, moving averages fan out. To sustain the trend, the market must consolidate to allow short-term fair value (fast MAs) to realign with long-term fair value (slow MAs). The 'Twist' occurs when these averages converge, flattening out into equilibrium. The subsequent reordering of the MAs acts as an institutional launchpad for the next trend leg.",
+      "market_inefficiency": "Exploiting mean reversion within a macro trend; it capitalizes on the exact mathematical moment when multi-timeframe fair value metrics align, triggering synchronized algorithmic buying/selling.",
+      "crypto_adaptation": "Use shorter MA periods (e.g. 8/21/55 EMA instead of standard). Works well on weekly BTC charts for macro cycle positioning. Pair with Bitcoin halving cycle awareness. On 4h or shorter timeframes the twist pattern is too frequently invalidated by volatility spikes to be reliable.",
+      "synergy_markers": {
+        "works_well_with": [
+          "Straddle/Strangle Options Plays",
+          "Bollinger Band Squeezes",
+          "BTC Dominance Cycle Rotation"
+        ],
+        "conflicts_with": [
+          "High Frequency Scalping",
+          "Trading the chop prior to the twist",
+          "Short timeframes in crypto"
+        ]
+      }
+    },
+    "mechanics": {
+      "logic_gate": {
+        "entry_primary": [
+          "Wait for fast, medium, and slow MAs to converge and flatten."
+        ],
+        "entry_confirmation": [
+          "MAs re-stack sequentially in trend order (e.g., fast > medium > slow for bullish) accompanied by a breakout price candle."
+        ]
+      },
+      "exit_logic": {
+        "take_profit": "Scale out upon initial trend exhaustion or when MAs begin to fan out significantly.",
+        "exit condition": "MAs cross back over each other, breaking the sequential trend order."
+      }
+    },
+    "operational_meta": {
+      "risk_profile": "Conservative",
+      "crypto_score": 70,
+      "stock_score": 85,
+      "crypto_verdict": "Valid but slower than crypto moves",
+      "dependency_indicators": [
+        "Fast EMA",
+        "Medium EMA",
+        "Slow EMA"
       ]
     }
   },
@@ -221,4 +366,3 @@
     }
   }
 ]
-
