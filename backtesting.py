@@ -22,9 +22,8 @@ from src.tools.indicators import add_indicators
 from src.schema.models import AnalystSignal
 from src.agents.risk_manager import RiskAssessment
 
-CACHE_FILE = os.path.join(project_root, "data", "llm_cache.json")
-os.makedirs(os.path.join(project_root, "data"), exist_ok=True)
-os.makedirs(os.path.join(project_root, "tests"), exist_ok=True)
+CACHE_FILE = os.path.join(project_root, "tests", "llm_cache.json")
+os.makedirs(os.path.join(project_root, "tests", "logs"), exist_ok=True)
 
 class BacktestEngine:
     def __init__(self, initial_balance=10000):
@@ -38,6 +37,11 @@ class BacktestEngine:
         self.analyst = AnalystAgent(knowledge_base=self.kb)
         self.risk_mgr = RiskManagerAgent(total_equity=initial_balance)
         self.cache = self._load_cache()
+        self.log_file = os.path.join(project_root, "tests", "logs", f"backtest_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt")
+        
+        # Initialize log file
+        with open(self.log_file, "w") as f:
+            f.write(f"=== BACKTEST START: {datetime.now(timezone.utc).isoformat()} ===\n")
         
     def _load_cache(self):
         if os.path.exists(CACHE_FILE):
@@ -48,6 +52,23 @@ class BacktestEngine:
     def _save_cache(self):
         with open(CACHE_FILE, "w") as f:
             json.dump(self.cache, f, indent=2)
+
+    def _log_step(self, timestamp, price, signal, verdict):
+        realized_pnl = sum(t['pnl'] for t in self.trade_history)
+        
+        unrealized_pnl = 0
+        for trade in self.portfolio:
+            unrealized_pnl += ((price - trade['entry_price']) / trade['entry_price']) * trade['position_size']
+            
+        with open(self.log_file, "a") as f:
+            f.write(f"\n[{timestamp}] Price: ${price:.2f} | Balance: ${self.balance:.2f}\n")
+            f.write(f"Realized PnL: ${realized_pnl:.2f} | Unrealized PnL: ${unrealized_pnl:.2f}\n")
+            if signal:
+                f.write(f"Analyst Signal: {signal.signal} | Reasoning: {signal.reasoning}\n")
+            if verdict:
+                f.write(f"Risk Verdict: {'APPROVED' if verdict.is_approved else 'REJECTED'} | Size: ${verdict.position_size if hasattr(verdict, 'position_size') else 0:.2f}\n")
+                f.write(f"Risk Monologue: {verdict.risk_monologue}\n")
+            f.write("-" * 50 + "\n")
 
     def fetch_historical_data(self, symbol="BTCUSDT", interval="4h", days=730):
         """Fetches historical klines handling Binance pagination limit of 1000."""
@@ -306,6 +327,12 @@ class BacktestEngine:
                         }
                         self.portfolio.append(trade)
                         print(f"  -> ENTRY [BUY]: Size ${pos_size:.2f} @ ${price:.2f}")
+
+            # 5. Step Logging
+            if 'signal' in locals() and 'verdict' in locals():
+                self._log_step(timestamp, price, signal, verdict)
+            else:
+                self._log_step(timestamp, price, None, None)
 
         # Close all open positions at end of test to realize PnL
         # print("ur mum")
