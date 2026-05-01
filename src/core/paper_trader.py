@@ -1,5 +1,6 @@
 import os
 import sys
+import ast
 import time
 import traceback
 from datetime import datetime, timezone
@@ -92,20 +93,89 @@ class PaperTradingEngine:
             db.close()
             
     def _evaluate_condition(self, condition_str: str, locals_dict: dict) -> bool:
-        """Evaluates a python string condition safely."""
-        if not condition_str or condition_str.lower() in ("true", "none"):
+        """Evaluates a simple comparison condition string safely using AST parsing.
+        
+        Supports expressions like 'RSI < 70', 'price > bb_lower * 1.01 and rsi < 30',
+        using only variables present in locals_dict.
+        """
+        if not condition_str or condition_str.lower() in ("true", "none", "n/a"):
             return True
         if condition_str.lower() in ("false",):
             return False
-            
+
         try:
-            # We assume risk manager gave a valid python string like 'RSI < 30'
-            result = eval(condition_str, {"__builtins__": {}}, locals_dict)
+            tree = ast.parse(condition_str, mode='eval')
+            result = self._safe_eval_node(tree.body, locals_dict)
             return bool(result)
         except Exception as e:
-            # If evaluation fails, we might print a warning, but return False to be safe
             print(f"[PaperTrader] Condition eval failed '{condition_str}': {e}")
             return False
+
+    def _safe_eval_node(self, node: ast.AST, variables: dict):
+        """Recursively evaluate an AST node, allowing only safe operations."""
+        if isinstance(node, ast.Constant):
+            if isinstance(node.value, (int, float, bool, str)):
+                return node.value
+            raise ValueError(f"Disallowed constant type: {type(node.value)}")
+
+        if isinstance(node, ast.Name):
+            if node.id in variables:
+                return variables[node.id]
+            raise NameError(f"Unknown variable: {node.id}")
+
+        if isinstance(node, ast.UnaryOp):
+            operand = self._safe_eval_node(node.operand, variables)
+            if isinstance(node.op, ast.USub):
+                return -operand
+            if isinstance(node.op, ast.UAdd):
+                return +operand
+            if isinstance(node.op, ast.Not):
+                return not operand
+            raise ValueError(f"Disallowed unary op: {type(node.op).__name__}")
+
+        if isinstance(node, ast.BinOp):
+            left = self._safe_eval_node(node.left, variables)
+            right = self._safe_eval_node(node.right, variables)
+            ops = {
+                ast.Add: lambda a, b: a + b,
+                ast.Sub: lambda a, b: a - b,
+                ast.Mult: lambda a, b: a * b,
+                ast.Div: lambda a, b: a / b,
+                ast.FloorDiv: lambda a, b: a // b,
+            }
+            op_func = ops.get(type(node.op))
+            if op_func is None:
+                raise ValueError(f"Disallowed binary op: {type(node.op).__name__}")
+            return op_func(left, right)
+
+        if isinstance(node, ast.Compare):
+            left = self._safe_eval_node(node.left, variables)
+            cmp_ops = {
+                ast.Lt: lambda a, b: a < b,
+                ast.LtE: lambda a, b: a <= b,
+                ast.Gt: lambda a, b: a > b,
+                ast.GtE: lambda a, b: a >= b,
+                ast.Eq: lambda a, b: a == b,
+                ast.NotEq: lambda a, b: a != b,
+            }
+            for op, comparator in zip(node.ops, node.comparators):
+                right = self._safe_eval_node(comparator, variables)
+                op_func = cmp_ops.get(type(op))
+                if op_func is None:
+                    raise ValueError(f"Disallowed comparison: {type(op).__name__}")
+                if not op_func(left, right):
+                    return False
+                left = right
+            return True
+
+        if isinstance(node, ast.BoolOp):
+            if isinstance(node.op, ast.And):
+                return all(self._safe_eval_node(v, variables) for v in node.values)
+            if isinstance(node.op, ast.Or):
+                return any(self._safe_eval_node(v, variables) for v in node.values)
+            raise ValueError(f"Disallowed bool op: {type(node.op).__name__}")
+
+        raise ValueError(f"Disallowed AST node: {type(node).__name__}")
 
     def _check_entry(self, db, trade: QueuedTrade, data: dict):
         if self._evaluate_condition(trade.entry_condition, data):

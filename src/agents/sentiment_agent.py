@@ -1,45 +1,37 @@
 import feedparser
-from dotenv import dotenv_values
-from google import genai
-from google.genai import types
-import json
-import re
+from transformers import pipeline
 
 class SentimentAgent:
     def __init__(self):
-        config = dotenv_values(".env")
-        self.client = genai.Client(api_key=config.get("gemini_key", ""))
-        self.model_name = "gemini-2.5-flash"
+        self.model = pipeline(
+            "text-classification",
+            model="ProsusAI/finbert",
+            tokenizer="ProsusAI/finbert",
+            top_k=None
+        )
 
     def fetch_and_analyze_news(self, limit=5):
         url = "https://www.coindesk.com/arc/outboundfeeds/rss/"
         feed = feedparser.parse(url)
-        
+
         articles = []
         for entry in feed.entries[:limit]:
-            prompt = f"""
-            Analyze the sentiment of the following crypto news headline and output a sentiment score between 0.0 and 1.0.
-            0.0 = Extreme Fear / Highly Bearish
-            0.5 = Neutral
-            1.0 = Extreme Greed / Highly Bullish
-            
-            Headline: {entry.title}
-            
-            Output ONLY a valid JSON object in this format:
-            {{"sentiment_score": 0.xx, "reasoning": "brief explanation"}}
-            """
             try:
-                response = self.client.models.generate_content(
-                    model=self.model_name,
-                    contents=prompt,
-                    config=types.GenerateContentConfig(
-                        temperature=0,
-                        response_mime_type="application/json"
-                    )
+                results = self.model(entry.title[:512])[0]
+                scores = {r["label"]: r["score"] for r in results}
+
+                # Map FinBERT's 3-class output to a 0.0–1.0 scale
+                # positive=1.0, neutral=0.5, negative=0.0
+                score = (
+                    scores.get("positive", 0.0) * 1.0 +
+                    scores.get("neutral",  0.0) * 0.5 +
+                    scores.get("negative", 0.0) * 0.0
                 )
-                parsed = json.loads(self._clean_json_response(response.text))
-                score = float(parsed.get("sentiment_score", 0.5))
-                reasoning = parsed.get("reasoning", "No reasoning provided.")
+
+                dominant = max(scores, key=scores.get)
+                confidence = scores[dominant]
+                reasoning = f"FinBERT: {dominant} ({confidence:.0%} confidence)"
+
             except Exception as e:
                 print(f"Sentiment analysis failed for '{entry.title}': {e}")
                 score = 0.5
@@ -52,7 +44,7 @@ class SentimentAgent:
                 "sentiment_score": score,
                 "reasoning": reasoning
             })
-            
+
         return articles
 
     def get_aggregate_sentiment(self, limit=5) -> float:
@@ -61,9 +53,3 @@ class SentimentAgent:
             return 0.5
         avg_score = sum(a["sentiment_score"] for a in articles) / len(articles)
         return float(avg_score)
-
-    def _clean_json_response(self, content: str) -> str:
-        match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", content)
-        if match:
-            return match.group(1)
-        return content.strip()
