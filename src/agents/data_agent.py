@@ -7,8 +7,8 @@ project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 sys.path.insert(0, project_root)
 
 from src.tools.binance_client import BinancePublicClient
-from src.tools.indicators import add_indicators
-from src.agents.analyst import AnalystAgent, MarketDataProcessor
+from src.tools.indicators import MarketDataProcessor
+from src.agents.analyst import AnalystAgent
 from src.agents.risk_manager import RiskManagerAgent
 from src.core.knowledge_base import TradingKnowledgeBase
 from src.dashboard.shared.database import get_db, AuditLog
@@ -40,7 +40,6 @@ class MainDataAgent:
                 print(f"Analyzing {symbol} (4h)...")
                 # Fetch latest 4h candle + 55 past = 56 candles. We fetch 60 to be safe for indicators.
                 df = self.client.get_historical_klines(symbol, "4h", limit=100)
-                df = add_indicators(df)
                 
                 # We need window=55 as requested
                 packet = MarketDataProcessor.get_context_packet(df, len(df)-1, window=55)

@@ -13,7 +13,7 @@ from src.dashboard.shared.database import get_db, AuditLog, QueuedTrade
 from src.dashboard.components.cards import render_metric_card, render_signal_card
 from src.dashboard.components.charts import render_candlestick_chart
 from src.tools.binance_client import BinancePublicClient
-from src.tools.indicators import add_indicators
+from src.tools.indicators import MarketDataProcessor
 
 # Page Configuration
 st.set_page_config(
@@ -63,7 +63,7 @@ if st.session_state['last_market_data'] is None:
         try:
             client = BinancePublicClient()
             df = client.get_historical_klines(st.session_state['current_symbol'], "4h", limit=100)
-            df = add_indicators(df)
+            df = MarketDataProcessor.add_indicators(df)
             st.session_state['last_market_data'] = df
         except Exception as e:
             st.error(f"Failed to fetch market data: {e}")

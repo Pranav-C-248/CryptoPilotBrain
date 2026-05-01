@@ -12,8 +12,7 @@ project_root = os.path.dirname(os.path.dirname(__file__))
 sys.path.insert(0, project_root)
 
 from src.tools.binance_client import BinancePublicClient
-from src.tools.indicators import add_indicators
-from src.agents.analyst import AnalystAgent, MarketDataProcessor
+from src.agents.analyst import AnalystAgent
 from src.agents.risk_manager import RiskManagerAgent
 from src.core.knowledge_base import TradingKnowledgeBase
 from src.dashboard.shared.database import get_db, AuditLog

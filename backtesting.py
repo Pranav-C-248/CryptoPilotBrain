@@ -16,9 +16,9 @@ project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, project_root)
 
 from src.core.knowledge_base import TradingKnowledgeBase
-from src.agents.analyst import AnalystAgent, MarketDataProcessor
+from src.agents.analyst import AnalystAgent
+from src.tools.indicators import MarketDataProcessor
 from src.agents.risk_manager import RiskManagerAgent
-from src.tools.indicators import add_indicators
 from src.schema.models import AnalystSignal
 from src.agents.risk_manager import RiskAssessment
 
@@ -117,11 +117,8 @@ class BacktestEngine:
         print(f"Fetched {len(df)} candles.")
         df = df.drop_duplicates(subset=['open_time']).sort_values('open_time').reset_index(drop=True)
         
-        # Apply indicators
-        print("Calculating indicators...")
-        df = add_indicators(df)
         # Drop rows with NaN from indicators (e.g., initial periods for MA)
-        df = df.dropna().reset_index(drop=True)
+        # Note: Indicators are now calculated lazily inside get_context_packet
         return df
 
     def _evaluate_condition(self, condition_str: str, locals_dict: dict) -> bool:

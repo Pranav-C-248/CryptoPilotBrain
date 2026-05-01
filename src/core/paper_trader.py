@@ -11,7 +11,7 @@ sys.path.insert(0, project_root)
 from src.dashboard.shared.database import get_db, QueuedTrade, Portfolio, Position, TradeLedger
 from src.schema.models import RiskAssessment
 from src.tools.binance_client import BinancePublicClient
-from src.tools.indicators import add_indicators
+from src.tools.indicators import MarketDataProcessor
 
 class PaperTradingEngine:
     def __init__(self):
@@ -62,7 +62,7 @@ class PaperTradingEngine:
             for sym in symbols_needed:
                 try:
                     df = self.client.get_historical_klines(sym, "1h", limit=50)
-                    df = add_indicators(df)
+                    df = MarketDataProcessor.add_indicators(df)
                     
                     # Build locals dict for eval
                     last_row = df.iloc[-1]
