@@ -159,7 +159,7 @@ STEP 3 — CONFLUENCE CHECK:
 List every entry_confirmation condition from the chosen strategy.
 For each condition: does the current market data satisfy it? YES or NO.
 If ADX is not present, infer non-trending confirmation from market_structure being
-"Sideways/Ranging" combined with the ATR/Price% shown in the packet. Do not reject
+"Sideways/Ranging" combined with the ATR/Price(%) shown in the packet. Do not reject
 a strategy solely because ADX is absent.
 
 STEP 4 — SIGNAL DECISION:
@@ -210,8 +210,8 @@ TECHNICAL OVERLAYS:
 
 LEVELS:
 - 50-Candle: High {high_50} | Low {low_50}
-- 20-Candle: High {high_20} | Low {low_20}  ← Turtle System 1 breakout reference
-- 55-Candle: High {high_55} | Low {low_55}  ← Turtle System 2 breakout reference
+- 20-Candle: High {high_20} | Low {low_20}  
+- 55-Candle: High {high_55} | Low {low_55}  
 
 MOMENTUM:
 - Stochastic Oscillator: {stoch} {'← oversold exhaustion zone' if stoch < 20 else '← overbought exhaustion zone' if stoch > 80 else ''}
