@@ -321,48 +321,5 @@
         "Slow EMA"
       ]
     }
-  },
-  {
-    "metadata": {
-      "name": "VWAP and Stochastic Oscillator Micro-Reversion",
-      "regime": "Volatile"
-    },
-    "theory": {
-      "principle": "Designed for micro-timeframes (e.g., 5-minute), this strategy anchors itself to the VWAP, an institutional volume-based mean. It catches micro-reversions when retail traders push the price beyond 1.5 standard deviations, utilizing the Stochastic Oscillator to optimally time the exhaustion of these irrational micro-pushes.",
-      "market_inefficiency": "Intraday retail overextensions against institutional volume averages causing delayed reactions to volume spikes.",
-      "synergy_markers": {
-        "works_well_with": [
-          "Volume-weighted means",
-          "Tight Volatility Bands"
-        ],
-        "conflicts_with": [
-          "Low volume/illiquid environments",
-          "Long-term swing trading"
-        ]
-      }
-    },
-    "mechanics": {
-      "logic_gate": {
-        "entry_primary": [
-          "A candle closes back inside the Bollinger Band after previously breaching it."
-        ],
-        "entry_confirmation": [
-          "Price is aligned correctly above/below the VWAP trend.",
-          "Stochastic Oscillator confirms extreme exhaustion (below 20 or above 80)."
-        ]
-      },
-      "exit_logic": {
-        "take_profit": "Price touches the opposite Bollinger Band.",
-        "exit_condition": "Stochastic Oscillator enters the opposite extreme zone."
-      }
-    },
-    "operational_meta": {
-      "risk_profile": "Aggressive",
-      "dependency_indicators": [
-        "VWAP",
-        "Bollinger Bands (1.5 SD)",
-        "Stochastic Oscillator (7,4,3)"
-      ]
-    }
   }
 ]

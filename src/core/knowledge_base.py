@@ -33,31 +33,31 @@ class TradingKnowledgeBase:
 
         # Build a semantically rich text block — this is what gets embedded
         text = f"""
-Strategy: {m['name']}
-Market Regime: {m['regime']}
+        Strategy: {m['name']}
+        Market Regime: {m['regime']}
 
-Principle: {t['principle']}
+        Principle: {t['principle']}
 
-Market Inefficiency Exploited: {t['market_inefficiency']}
+        Market Inefficiency Exploited: {t['market_inefficiency']}
 
-Works well with: {', '.join(t['synergy_markers']['works_well_with'])}
-Conflicts with: {', '.join(t['synergy_markers']['conflicts_with'])}
+        Works well with: {', '.join(t['synergy_markers']['works_well_with'])}
+        Conflicts with: {', '.join(t['synergy_markers']['conflicts_with'])}
 
-Entry Conditions: {' '.join(mech['logic_gate']['entry_primary'])}
-Confirmation Signals: {' '.join(mech['logic_gate']['entry_confirmation'])}
+        Entry Conditions: {' '.join(mech['logic_gate']['entry_primary'])}
+        Confirmation Signals: {' '.join(mech['logic_gate']['entry_confirmation'])}
 
-Take Profit: {mech['exit_logic']['take_profit']}
-Stop Loss / Exit: {mech['exit_logic']['exit_condition']}
+        Take Profit: {mech['exit_logic']['take_profit']}
+        Stop Loss / Exit: {mech['exit_logic']['exit_condition']}
 
-Risk Profile: {op['risk_profile']}
-Required Indicators: {', '.join(op['dependency_indicators'])}
+        Risk Profile: {op['risk_profile']}
+        Required Indicators: {', '.join(op['dependency_indicators'])}
         """.strip()
 
         return Document(
             page_content=text,
             metadata={
                 "name": m["name"],
-                "regime": m["regime"],
+                "regime": m["regime"].split("/")[0].strip(),
                 "risk_profile": op["risk_profile"],
                 # Store full strategy as JSON string for retrieval
                 "full_json": json.dumps(strategy)
