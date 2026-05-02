@@ -70,56 +70,7 @@ class BacktestEngine:
                 f.write(f"Risk Monologue: {verdict.risk_monologue}\n")
             f.write("-" * 50 + "\n")
 
-    def fetch_historical_data(self, symbol="BTCUSDT", interval="4h", days=730):
-        """Fetches historical klines handling Binance pagination limit of 1000."""
-        print(f"Fetching {days} days of {interval} data for {symbol}...")
-        end_time = int(datetime.now(timezone.utc).timestamp() * 1000)
-        start_time = end_time - (days * 24 * 60 * 60 * 1000)
-        
-        all_klines = []
-        url = "https://api.binance.com/api/v3/klines"
-        
-        while start_time < end_time:
-            params = {
-                "symbol": symbol,
-                "interval": interval,
-                "limit": 1000,
-                "startTime": start_time,
-                "endTime": end_time
-            }
-            try:
-                res = requests.get(url, params=params)
-                res.raise_for_status()
-                data = res.json()
-            except Exception as e:
-                print(f"Error fetching data: {e}")
-                time.sleep(5)
-                continue
-                
-            if not data:
-                break
-                
-            all_klines.extend(data)
-            start_time = data[-1][0] + 1 # Next candle
-            time.sleep(0.5) # Avoid rate limits
-            
-        df = pd.DataFrame(all_klines, columns=[
-            "open_time", "open", "high", "low", "close", "volume",
-            "close_time", "quote_asset_volume", "number_of_trades",
-            "taker_buy_base_asset_volume", "taker_buy_quote_asset_volume", "ignore"
-        ])
-        df['open_time'] = pd.to_datetime(df['open_time'], unit='ms', utc=True)
-        df['close_time'] = pd.to_datetime(df['close_time'], unit='ms', utc=True)
-        numeric_cols = ["open", "high", "low", "close", "volume"]
-        for col in numeric_cols:
-            df[col] = df[col].astype(float)
-            
-        print(f"Fetched {len(df)} candles.")
-        df = df.drop_duplicates(subset=['open_time']).sort_values('open_time').reset_index(drop=True)
-        
-        # Drop rows with NaN from indicators (e.g., initial periods for MA)
-        # Note: Indicators are now calculated lazily inside get_context_packet
-        return df
+
 
     def _evaluate_condition(self, condition_str: str, locals_dict: dict) -> bool:
         """Evaluates a simple comparison condition string safely using AST parsing.
@@ -214,7 +165,7 @@ class BacktestEngine:
 
     def run(self, df: pd.DataFrame, limit: int = None):
         print("\n--- Starting Backtest Simulation ---")
-        window = 55
+        window = 200
         total_steps = len(df) - window
         print(window,total_steps)
         if limit:
@@ -236,9 +187,10 @@ class BacktestEngine:
             
             # Build execution namespace for evaluating conditions
             locals_dict = {col: row[col] for col in df.columns}
-            if 'rsi' in locals_dict: locals_dict['RSI'] = locals_dict['rsi']
-            if 'macd' in locals_dict: locals_dict['MACD'] = locals_dict['macd']
             locals_dict['price'] = price
+            
+            # Make case-insensitive by adding uppercase versions of all keys
+            locals_dict.update({k.upper(): v for k, v in locals_dict.items() if isinstance(k, str)})
             
             # 1. Check Exits for Open Trades
             # print("1 step")
@@ -436,13 +388,21 @@ class BacktestEngine:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run Historical Backtest")
     parser.add_argument("--limit", type=int, default=None, help="Number of candles to process. Omit to run full dataset.")
-    parser.add_argument("--days", type=int, default=730, help="Days of historical data to fetch (default 730 = 2 years)")
+    parser.add_argument("--data", type=str, default="tests/BTCUSDT_4h_historical.csv", help="Path to historical data CSV")
     args = parser.parse_args()
 
     engine = BacktestEngine(initial_balance=10000)
     
     # 1. Fetch & prep data
-    df = engine.fetch_historical_data(days=args.days)
+    csv_path = os.path.join(project_root, args.data)
+    if not os.path.exists(csv_path):
+        print(f"Error: {csv_path} does not exist. Please run 'python scripts/download_historical_data.py' first.")
+        sys.exit(1)
+        
+    print(f"Loading data from {csv_path}...")
+    df = pd.read_csv(csv_path)
+    df['open_time'] = pd.to_datetime(df['open_time'], format='ISO8601', utc=True)
+    df['close_time'] = pd.to_datetime(df['close_time'], format='ISO8601', utc=True)
     
     # 2. Run simulation
     # print(df.head(10))
