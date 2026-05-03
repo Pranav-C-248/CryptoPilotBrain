@@ -211,7 +211,7 @@
       },
       "exit_logic": {
         "take_profit": "Liquidate at the 50% Fibonacci retracement of the macro drop, or hold for new trend highs.",
-        "exit condition": "Price slices through the 200 MA on high volume and fails to recover the level within 2-3 sessions."
+        "exit_condition": "Price slices through the 200 MA on high volume and fails to recover the level within 2-3 sessions."
       }
     },
     "operational_meta": {
@@ -260,7 +260,7 @@
       },
       "exit_logic": {
         "take_profit": "Take partial profit (60-70%) at the Middle Bollinger Band; target the Upper Bollinger Band for the remainder.",
-        "exit condition": "Price closes firmly below the bottom Bollinger Band, continuing to push the band lower."
+        "exit_condition": "Price closes firmly below the bottom Bollinger Band, continuing to push the band lower."
       }
     },
     "operational_meta": {
@@ -307,7 +307,7 @@
       },
       "exit_logic": {
         "take_profit": "Scale out upon initial trend exhaustion or when MAs begin to fan out significantly.",
-        "exit condition": "MAs cross back over each other, breaking the sequential trend order."
+        "exit_condition": "MAs cross back over each other, breaking the sequential trend order."
       }
     },
     "operational_meta": {
