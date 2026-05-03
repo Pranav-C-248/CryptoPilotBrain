@@ -258,8 +258,6 @@ class MarketDataProcessor:
             bb40_pos = "Upper Half"
         else:
             bb40_pos = "Lower Half"
-
-        # ── 7. Bollinger Bands (20, 1.5σ) — VWAP + Stochastic ────────────────
         
 
         # ── 8. EMA (20) — primary anchor ──────────────────────────────────────
@@ -312,7 +310,6 @@ class MarketDataProcessor:
         atr_avg_5     = float(current_row['atr_avg_5'])
         atr_expanding = bool(current_row['atr_expanding'])
 
-        # ── 15. Stochastic (7,4,3) ────────────────────────────────────────────
 
         return {
             "snapshot": snapshot,
@@ -415,6 +412,5 @@ class MarketDataProcessor:
                 "atr_expanding": atr_expanding
             },
 
-            # Stochastic(7,4,3) — VWAP + Stochastic Micro-Reversion
             
         }
