@@ -118,7 +118,7 @@ SIDEWAYS_ALLOWED = {
     "RSI Divergence Fade",
     "Donchian Range Oscillation",
     "EMA20 Mean Reversion",
-    "Bollinger Bands + RSI Extremes",
+    # "Bollinger Bands + RSI Extremes",
 }
 
 # ── Strategies exempt from the sentiment veto ─────────────────────────────────
@@ -241,6 +241,7 @@ class RiskManagerAgent:
             price          = entry_price,
             open_positions = len(current_portfolio),
             profile        = profile,
+            vetoed         = bool(veto_reasons), 
         )
         valid_until   = self._compute_valid_until()
         audit_summary = self._build_audit_summary(
@@ -520,24 +521,27 @@ class RiskManagerAgent:
         target_conf_mult = confidence
 
         if profile == "Conservative":
-            stop_dist = self.CON_ATR_STOP_MULT * atr * stop_conf_mult
+            base_stop_dist = self.CON_ATR_STOP_MULT * atr
+            stop_dist = base_stop_dist * stop_conf_mult
 
             if strategy_name == "200 MA Macro Pullback Accumulation":
                 macro_drop_usd = abs(pct_change_50 / 100) * entry_price
                 target_dist    = (macro_drop_usd * 0.50) * target_conf_mult
 
             elif strategy_name == "MA Twist & Convergence Continuation":
-                target_dist = 2.0 * stop_dist * target_conf_mult
+                # Proxy target based on BASE stop distance — not the widened one
+                target_dist = (2.0 * base_stop_dist) * target_conf_mult
 
             elif not fixed_target:
                 target_dist = 0.0  # Turtle — profits run, confidence irrelevant
 
             else:
-                target_dist = self.CON_SIDEWAYS_RR * stop_dist * target_conf_mult
-
+                target_dist = (self.CON_SIDEWAYS_RR * base_stop_dist) * target_conf_mult
+    
         else:  # Aggressive
-            stop_dist   = self.AGG_ATR_STOP_MULT * atr * stop_conf_mult
-            target_dist = self.AGG_RISK_REWARD * stop_dist * target_conf_mult
+            base_stop_dist = self.AGG_ATR_STOP_MULT * atr
+            stop_dist      = base_stop_dist * stop_conf_mult
+            target_dist    = (self.AGG_RISK_REWARD * base_stop_dist) * target_conf_mult
 
         # ── Minimum stop clamp (fix #2 — see below) ───────────────────────────────
         min_stop = entry_price * self.MIN_STOP_PCT
@@ -601,8 +605,9 @@ class RiskManagerAgent:
         price: float,
         open_positions: int,
         profile: str,
+        vetoed: bool,
     ) -> float:
-        if signal == "HOLD" or price == 0 or atr == 0:
+        if signal == "HOLD" or price == 0 or atr == 0 or vetoed:
             return 0.0
 
         # ── Minimum stop clamp applied here too for sizing consistency ────────────
