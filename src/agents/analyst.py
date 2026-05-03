@@ -277,8 +277,8 @@ class AnalystAgent:
         # ── KB retrieval ──────────────────────────────────────────────────────
         strategies: list[dict] = self.kb.get_relevant_strategies(
             query=query,
-            k=3,
-            score_threshold=0.30,
+            k=2,
+            score_threshold=0.40,
             regime_filter=regime
         )
         strategy_context = json.dumps(strategies, indent=2) if strategies else None

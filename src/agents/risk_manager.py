@@ -12,23 +12,123 @@ class RiskAssessment(BaseModel):
     exit_condition: str
     target: float
     stop_loss: float
-    position_size: float       # USD notional
+    position_size: float
     timeframe: str
     audit_summary: str
-    valid_until: str           # ISO UTC string
+    valid_until: str
 
 
 # ── Strategy Registry ─────────────────────────────────────────────────────────
-# Maps strategy name → risk profile and behaviour flags
 
 STRATEGY_REGISTRY = {
-    "Volatility Breakout Scalping":               {"profile": "Aggressive", "fixed_target": True},
-    "Pure Momentum Scalping":                     {"profile": "Aggressive", "fixed_target": True},
-    "Bollinger Bands + RSI Extremes":             {"profile": "Aggressive", "fixed_target": True},
-    "VWAP and Stochastic Oscillator Micro-Reversion": {"profile": "Aggressive", "fixed_target": True},
-    "Turtle Strategy (System 1 - 20-Day Breakout)":   {"profile": "Conservative", "fixed_target": False},
-    "Turtle Strategy (System 2 - 55-Day Macro Breakout)": {"profile": "Conservative", "fixed_target": False},
-    "fallback":                                   {"profile": "Conservative", "fixed_target": True},
+    # ── Aggressive — fixed R:R targets ───────────────────────────────────────
+    "Volatility Breakout Scalping": {
+        "profile":      "Aggressive",
+        "fixed_target": True,
+        "rsi_veto":     True,
+        "guards":       [],
+    },
+    "Bollinger Bands + RSI Extremes": {
+        "profile":      "Aggressive",
+        "fixed_target": True,
+        "rsi_veto":     False,   # RSI extremes ARE the entry signal — veto contradictory
+        "guards":       [],
+    },
+    "Bottom Bollinger Band Mean Reversion": {
+        "profile":      "Aggressive",
+        "fixed_target": True,
+        "rsi_veto":     True,
+        "guards":       [],
+    },
+
+    # ── Aggressive — volatile regime ──────────────────────────────────────────
+    "ATR Expansion Breakout": {
+        "profile":      "Aggressive",
+        "fixed_target": True,
+        "rsi_veto":     True,
+        "guards":       ["atr_expanding"],
+    },
+    "Donchian Volatility Range Breach": {
+        "profile":      "Aggressive",
+        "fixed_target": True,
+        "rsi_veto":     True,
+        "guards":       ["atr_expanding"],
+    },
+
+    # ── Conservative — Turtle: profits run, no fixed target ──────────────────
+    "Turtle Strategy (System 1 - 20-Day Breakout)": {
+        "profile":      "Conservative",
+        "fixed_target": False,
+        "rsi_veto":     True,
+        "guards":       [],
+    },
+    "Turtle Strategy (System 2 - 55-Day Macro Breakout)": {
+        "profile":      "Conservative",
+        "fixed_target": False,
+        "rsi_veto":     True,
+        "guards":       [],
+    },
+
+    # ── Conservative — trending, explicit take-profit logic ───────────────────
+    "200 MA Macro Pullback Accumulation": {
+        "profile":      "Conservative",
+        "fixed_target": True,
+        "rsi_veto":     True,
+        "guards":       ["ema200_upsloping"],
+    },
+    "MA Twist & Convergence Continuation": {
+        "profile":      "Conservative",
+        "fixed_target": True,
+        "rsi_veto":     True,
+        "guards":       ["ma_converging"],
+    },
+
+    # ── Conservative — sideways regime ────────────────────────────────────────
+    "RSI Divergence Fade": {
+        "profile":      "Conservative",
+        "fixed_target": True,
+        "rsi_veto":     False,   # RSI divergence IS the entry signal — veto contradictory
+        "guards":       [],
+    },
+    "Donchian Range Oscillation": {
+        "profile":      "Conservative",
+        "fixed_target": True,
+        "rsi_veto":     False,   # RSI overbought/oversold IS the confirmation signal
+        "guards":       [],
+    },
+    "EMA20 Mean Reversion": {
+        "profile":      "Conservative",
+        "fixed_target": True,
+        "rsi_veto":     True,
+        "guards":       [],
+    },
+
+    # ── Fallback ──────────────────────────────────────────────────────────────
+    "fallback": {
+        "profile":      "Conservative",
+        "fixed_target": True,
+        "rsi_veto":     True,
+        "guards":       [],
+    },
+}
+
+# ── Strategies exempt from the sideways regime veto ──────────────────────────
+# These strategies are explicitly designed for sideways/ranging conditions.
+SIDEWAYS_ALLOWED = {
+    "RSI Divergence Fade",
+    "Donchian Range Oscillation",
+    "EMA20 Mean Reversion",
+    "Bollinger Bands + RSI Extremes",
+}
+
+# ── Strategies exempt from the sentiment veto ─────────────────────────────────
+# These strategies use extreme sentiment as a mandatory entry condition,
+# not a risk signal. Vetoing them on sentiment directly contradicts their logic.
+SENTIMENT_VETO_EXEMPT = {
+    "200 MA Macro Pullback Accumulation",
+    "Bottom Bollinger Band Mean Reversion",
+    "RSI Divergence Fade",
+    "EMA20 Mean Reversion",
 }
 
 
@@ -42,29 +142,32 @@ class RiskManagerAgent:
     """
 
     # ── Global Parameters ─────────────────────────────────────────────────────
-    MAX_CONCURRENT          = 3      # Hard cap on concurrent open positions
-    CONFIDENCE_FLOOR        = 0.50   # Global floor — below this, no trade ever
-    RSI_OVERBOUGHT_VETO     = 83     # BUY above this RSI → vetoed
-    RSI_OVERSOLD_VETO       = 17     # SELL below this RSI → vetoed
-    SENTIMENT_BULL_FLOOR    = 0.22   # BUY with sentiment below this → vetoed
-    SENTIMENT_BEAR_CEIL     = 0.78   # SELL with sentiment above this → vetoed
+    MAX_CONCURRENT          = 3
+    CONFIDENCE_FLOOR        = 0.50
+    RSI_OVERBOUGHT_VETO     = 83
+    RSI_OVERSOLD_VETO       = 17
+    SENTIMENT_BULL_FLOOR    = 0.22
+    SENTIMENT_BEAR_CEIL     = 0.78
+    CONFIDENCE_LEVEL_SENSITIVITY = 1.0
+    MIN_STOP_PCT = 0.003    # Stop distance floor: 0.3% of entry price
 
     # ── Aggressive Strategy Parameters ───────────────────────────────────────
-    AGG_BASE_RISK_PCT       = 0.02   # 2% equity risked per trade
-    AGG_MAX_POSITION_PCT    = 0.10   # 10% equity hard cap per position
-    AGG_MAX_LOSS_PCT        = 0.02   # Max loss per trade = 2% equity
-    AGG_ATR_STOP_MULT       = 1.5    # Stop = 1.5× ATR from entry
-    AGG_RISK_REWARD         = 2.0    # Target = 2× stop distance (1:2 R:R)
-    AGG_ATR_VOLATILITY_CAP  = 0.08   # ATR/price above this → too erratic for scalping
+    AGG_BASE_RISK_PCT       = 0.02
+    AGG_MAX_POSITION_PCT    = 0.10
+    AGG_MAX_LOSS_PCT        = 0.02
+    AGG_ATR_STOP_MULT       = 1.5
+    AGG_RISK_REWARD         = 2.0
+    AGG_ATR_VOLATILITY_CAP  = 0.08
 
-    # ── Conservative Strategy Parameters (Turtle logic) ───────────────────────
-    CON_RISK_PCT            = 0.02   # Turtle's own 2% rule
-    CON_MAX_POSITION_PCT    = 0.15   # Turtle holds larger positions, longer duration
-    CON_ATR_STOP_MULT       = 2.0    # Turtle uses 2N stop
-    CON_ATR_VOLATILITY_CAP  = 0.15   # Macro strategies tolerate higher ATR
+    # ── Conservative Strategy Parameters ─────────────────────────────────────
+    CON_RISK_PCT            = 0.02
+    CON_MAX_POSITION_PCT    = 0.15
+    CON_ATR_STOP_MULT       = 2.0
+    CON_ATR_VOLATILITY_CAP  = 0.15
+    CON_SIDEWAYS_RR         = 1.5   # tighter R:R for mean reversion strategies
 
     def __init__(self, total_equity: float, timeframe_hours: int = 4):
-        self.total_equity = total_equity
+        self.total_equity    = total_equity
         self.timeframe_hours = timeframe_hours
 
     # ── Public Entry Point ────────────────────────────────────────────────────
@@ -77,10 +180,16 @@ class RiskManagerAgent:
         current_portfolio: list,
     ) -> RiskAssessment:
 
-        entry_price = market_data['snapshot']['close']
-        atr         = market_data['volatility']['atr']
-        rsi         = market_data['rsi']['current']
-        regime      = market_data['trends']['market_structure'].lower()
+        entry_price   = market_data['snapshot']['close']
+        atr           = market_data['volatility']['atr']
+        atr_expanding = market_data['volatility']['atr_expanding']
+        rsi           = market_data['rsi']['current']
+        regime        = market_data['trends']['market_structure'].lower()
+        pct_change_50 = market_data['trends']['pct_change_50']
+        adx_value     = market_data['adx']['value']
+        ema200_slope  = market_data['ema200']['slope']
+        ma_converging = market_data['ema_multi']['converging']
+        ma_stack      = market_data['ema_multi']['stack_order']
 
         strategy_meta = STRATEGY_REGISTRY.get(
             analyst_signal.strategy_used,
@@ -88,24 +197,69 @@ class RiskManagerAgent:
         )
         profile      = strategy_meta["profile"]
         fixed_target = strategy_meta["fixed_target"]
+        rsi_veto     = strategy_meta["rsi_veto"]
+        guards       = strategy_meta["guards"]
+
+        # Bundle all context the gauntlet needs to evaluate guards
+        guard_context = {
+            "atr_expanding":  atr_expanding,
+            "ema200_slope":   ema200_slope,
+            "ma_converging":  ma_converging,
+            "ma_stack":       ma_stack,
+        }
 
         signal, veto_reasons = self._run_veto_gauntlet(
-            analyst_signal, rsi, atr, entry_price,
-            sentiment_score, current_portfolio, regime, profile
+            analyst_signal  = analyst_signal,
+            rsi             = rsi,
+            atr             = atr,
+            price           = entry_price,
+            sentiment       = sentiment_score,
+            portfolio       = current_portfolio,
+            regime          = regime,
+            profile         = profile,
+            rsi_veto        = rsi_veto,
+            adx_value       = adx_value,
+            guards          = guards,
+            guard_context   = guard_context,
         )
 
         stop_loss, target = self._calculate_levels(
-            signal, entry_price, atr, profile, fixed_target
+            signal        = signal,
+            entry_price   = entry_price,
+            atr           = atr,
+            profile       = profile,
+            fixed_target  = fixed_target,
+            strategy_name = analyst_signal.strategy_used,
+            pct_change_50 = pct_change_50,
+            vetoed        = bool(veto_reasons),
+            confidence    = analyst_signal.confidence,
         )
         position_size = self._calculate_position_size(
-            signal, analyst_signal.confidence, atr,
-            entry_price, len(current_portfolio), profile
+            signal         = signal,
+            confidence     = analyst_signal.confidence,
+            atr            = atr,
+            price          = entry_price,
+            open_positions = len(current_portfolio),
+            profile        = profile,
         )
         valid_until   = self._compute_valid_until()
         audit_summary = self._build_audit_summary(
-            signal, analyst_signal, rsi, atr, sentiment_score,
-            entry_price, stop_loss, target, position_size,
-            profile, veto_reasons
+            final_signal   = signal,
+            analyst_signal = analyst_signal,
+            rsi            = rsi,
+            atr            = atr,
+            sentiment      = sentiment_score,
+            entry          = entry_price,
+            stop_loss      = stop_loss,
+            target         = target,
+            position_size  = position_size,
+            profile        = profile,
+            veto_reasons   = veto_reasons,
+            adx_value      = adx_value,
+            ema200_slope   = ema200_slope,
+            ma_converging  = ma_converging,
+            ma_stack       = ma_stack,
+            vetoed         = bool(veto_reasons),
         )
 
         return RiskAssessment(
@@ -125,7 +279,7 @@ class RiskManagerAgent:
 
     def _run_veto_gauntlet(
         self,
-        signal_obj: AnalystSignal,
+        analyst_signal: AnalystSignal,
         rsi: float,
         atr: float,
         price: float,
@@ -133,92 +287,261 @@ class RiskManagerAgent:
         portfolio: list,
         regime: str,
         profile: str,
+        rsi_veto: bool,
+        adx_value: float,
+        guards: list[str],
+        guard_context: dict,
     ) -> tuple[str, list[str]]:
 
-        sig    = signal_obj.signal
+        sig    = analyst_signal.signal
         vetoes = []
 
-        # 1. Analyst HOLD passthrough — nothing to evaluate
+        # 1. Analyst HOLD passthrough — no further checks needed
         if sig == "HOLD":
             vetoes.append("Analyst issued HOLD.")
             return "HOLD", vetoes
 
-        # 2. Global confidence floor
-        if signal_obj.confidence < self.CONFIDENCE_FLOOR:
-            vetoes.append(
-                f"Confidence veto: {signal_obj.confidence:.2f} below floor {self.CONFIDENCE_FLOOR}."
-            )
-
-        # 3. Portfolio saturation
+        # 2. Portfolio saturation — cheapest check, highest frequency rejection
         if len(portfolio) >= self.MAX_CONCURRENT:
             vetoes.append(
-                f"Exposure veto: {len(portfolio)} open positions hits max cap {self.MAX_CONCURRENT}."
+                f"Exposure veto: {len(portfolio)} open positions "
+                f"hits max cap {self.MAX_CONCURRENT}."
             )
 
-        # 4. RSI extremes
-        if sig == "BUY" and rsi > self.RSI_OVERBOUGHT_VETO:
+        # 3. Global confidence floor
+        if analyst_signal.confidence < self.CONFIDENCE_FLOOR:
             vetoes.append(
-                f"RSI veto: BUY at RSI={rsi:.1f} is critically overbought (>{self.RSI_OVERBOUGHT_VETO})."
-            )
-        if sig == "SELL" and rsi < self.RSI_OVERSOLD_VETO:
-            vetoes.append(
-                f"RSI veto: SELL at RSI={rsi:.1f} is critically oversold (<{self.RSI_OVERSOLD_VETO})."
+                f"Confidence veto: {analyst_signal.confidence:.2f} "
+                f"below floor {self.CONFIDENCE_FLOOR}."
             )
 
-        # 5. Sentiment conflict
-        if sig == "BUY" and sentiment < self.SENTIMENT_BULL_FLOOR:
-            vetoes.append(
-                f"Sentiment veto: BUY into extreme fear (sentiment={sentiment:.2f})."
-            )
-        if sig == "SELL" and sentiment > self.SENTIMENT_BEAR_CEIL:
-            vetoes.append(
-                f"Sentiment veto: SELL into extreme greed (sentiment={sentiment:.2f})."
-            )
+        # 4. RSI extreme veto — skipped for strategies where RSI extremes are
+        #    the entry signal itself (rsi_veto=False in registry)
+        if rsi_veto:
+            if sig == "BUY" and rsi > self.RSI_OVERBOUGHT_VETO:
+                vetoes.append(
+                    f"RSI veto: BUY at RSI(14)={rsi:.1f} is critically "
+                    f"overbought (>{self.RSI_OVERBOUGHT_VETO})."
+                )
+            if sig == "SELL" and rsi < self.RSI_OVERSOLD_VETO:
+                vetoes.append(
+                    f"RSI veto: SELL at RSI(14)={rsi:.1f} is critically "
+                    f"oversold (<{self.RSI_OVERSOLD_VETO})."
+                )
+
+        # 5. Sentiment conflict — exempt strategies that use extreme sentiment
+        #    as a mandatory entry condition rather than a risk signal
+        if analyst_signal.strategy_used not in SENTIMENT_VETO_EXEMPT:
+            if sig == "BUY" and sentiment < self.SENTIMENT_BULL_FLOOR:
+                vetoes.append(
+                    f"Sentiment veto: BUY into extreme fear "
+                    f"(sentiment={sentiment:.2f})."
+                )
+            if sig == "SELL" and sentiment > self.SENTIMENT_BEAR_CEIL:
+                vetoes.append(
+                    f"Sentiment veto: SELL into extreme greed "
+                    f"(sentiment={sentiment:.2f})."
+                )
 
         # 6. ATR volatility cap — profile-aware
         atr_pct = atr / price if price > 0 else 0
-        atr_cap = self.AGG_ATR_VOLATILITY_CAP if profile == "Aggressive" else self.CON_ATR_VOLATILITY_CAP
+        atr_cap = (
+            self.AGG_ATR_VOLATILITY_CAP if profile == "Aggressive"
+            else self.CON_ATR_VOLATILITY_CAP
+        )
         if atr_pct > atr_cap:
             vetoes.append(
-                f"Volatility veto: ATR/price={atr_pct:.3f} exceeds {profile} cap {atr_cap}."
+                f"Volatility veto: ATR/price={atr_pct:.3f} exceeds "
+                f"{profile} cap {atr_cap}."
             )
 
-        # 7. Sideways regime + wrong strategy type
-        # BB+RSI is Aggressive + Sideways — allow it through.
-        # Conservative strategies in Sideways → veto.
+        # 7. Sideways regime + Conservative strategy veto.
+        #    Exempt strategies explicitly designed for sideways conditions.
         if ("sideways" in regime or "ranging" in regime) and profile == "Conservative":
-            vetoes.append(
-                f"Regime veto: Conservative strategy triggered in Sideways regime. Forced HOLD."
-            )
+            if analyst_signal.strategy_used not in SIDEWAYS_ALLOWED:
+                vetoes.append(
+                    f"Regime veto: Conservative trending strategy "
+                    f"'{analyst_signal.strategy_used}' triggered in Sideways regime. "
+                    f"Forced HOLD."
+                )
+
+        # 8. Registry-driven strategy-specific guards.
+        #    Each guard key maps to a condition that must be True for the
+        #    strategy to be valid. Failures are surfaced with a clear reason.
+        guard_failures = self._evaluate_guards(
+            guards        = guards,
+            guard_context = guard_context,
+            strategy_name = analyst_signal.strategy_used,
+        )
+        vetoes.extend(guard_failures)
 
         if vetoes:
             return "HOLD", vetoes
 
         return sig, vetoes
 
+    # ── Registry-Driven Guard Evaluator ───────────────────────────────────────
+
+    def _evaluate_guards(
+        self,
+        guards: list[str],
+        guard_context: dict,
+        strategy_name: str,
+    ) -> list[str]:
+        """
+        Evaluates strategy-specific guards defined in the registry.
+        Returns a list of veto strings for any guard that fails.
+        Adding a new strategy-specific condition only requires:
+          1. Adding the guard key to the registry entry.
+          2. Adding its evaluation clause here.
+        No other methods need to be touched.
+        """
+        failures = []
+
+        for guard in guards:
+
+            if guard == "ema200_upsloping":
+                # 200 MA Macro Pullback: EMA(200) must slope upward
+                # to confirm the asset is in a macro bull regime.
+                if guard_context["ema200_slope"] != "Increasing":
+                    failures.append(
+                        f"Guard fail [{strategy_name}]: EMA(200) slope is "
+                        f"'{guard_context['ema200_slope']}' — bull regime not confirmed."
+                    )
+
+            elif guard == "ma_converging":
+                # MA Twist: EMAs must be actively converging for the
+                # twist setup to be valid. A diverged stack means the
+                # twist has already fired or hasn't formed yet.
+                if not guard_context["ma_converging"]:
+                    failures.append(
+                        f"Guard fail [{strategy_name}]: EMAs not converging "
+                        f"(stack='{guard_context['ma_stack']}'). Twist condition not met."
+                    )
+
+            elif guard == "atr_expanding":
+                # ATR Expansion Breakout / Donchian Volatility Range Breach:
+                # ATR must be actively expanding — a breakout without expanding
+                # ATR is a low-conviction range wobble, not a volatility event.
+                if not guard_context["atr_expanding"]:
+                    failures.append(
+                        f"Guard fail [{strategy_name}]: ATR is not expanding. "
+                        f"No volatility regime shift confirmed."
+                    )
+
+        return failures
+
     # ── Levels ────────────────────────────────────────────────────────────────
 
+    # def _calculate_levels(
+    #     self,
+    #     signal: str,
+    #     entry_price: float,
+    #     atr: float,
+    #     profile: str,
+    #     fixed_target: bool,
+    #     strategy_name: str,
+    #     pct_change_50: float,
+    #     vetoed: bool,
+    # ) -> tuple[float, float]:
+    #     """
+    #     Returns (stop_loss, target). If vetoed or signal is HOLD, returns (0.0, 0.0).
+
+    #     Aggressive strategies  : stop = 1.5×ATR | target = 2× stop distance (1:2 R:R)
+    #     Turtle strategies      : stop = 2×ATR   | target = 0.0 (profits run)
+    #     200 MA Pullback        : stop = 2×ATR   | target = entry ± 50% of 50-candle drop
+    #     MA Twist               : stop = 2×ATR   | target = 2× stop distance (proxy)
+    #     Conservative Sideways  : stop = 2×ATR   | target = 1.5× stop distance (1:1.5 R:R)
+    #     """
+    #     if signal == "HOLD" or entry_price == 0 or vetoed:
+    #         return 0.0, 0.0
+
+    #     if profile == "Conservative":
+    #         stop_dist = self.CON_ATR_STOP_MULT * atr
+
+    #         if strategy_name == "200 MA Macro Pullback Accumulation":
+    #             # Target = 50% recovery of the 50-candle macro drop.
+    #             # pct_change_50 is negative during a pullback so abs() is used.
+    #             macro_drop_usd = abs(pct_change_50 / 100) * entry_price
+    #             target_dist    = macro_drop_usd * 0.50
+
+    #         elif strategy_name == "MA Twist & Convergence Continuation":
+    #             # Proxy for "EMAs begin fanning out" — not directly computable
+    #             # from a single snapshot, so 2× stop distance is used.
+    #             target_dist = 2.0 * stop_dist
+
+    #         elif not fixed_target:
+    #             # Turtle strategies — profits run, no fixed target
+    #             target_dist = 0.0
+
+    #         else:
+    #             # General Conservative fixed-target (Sideways mean reversion).
+    #             # Tighter R:R than Aggressive because mean reversion targets
+    #             # a known structural level (EMA20 / BB midline), not open air.
+    #             target_dist = self.CON_SIDEWAYS_RR * stop_dist
+
+    #     else:  # Aggressive
+    #         stop_dist   = self.AGG_ATR_STOP_MULT * atr
+    #         target_dist = self.AGG_RISK_REWARD * stop_dist
+
+    #     if signal == "BUY":
+    #         stop_loss = entry_price - stop_dist
+    #         target    = (entry_price + target_dist) if fixed_target else 0.0
+    #     else:  # SELL
+    #         stop_loss = entry_price + stop_dist
+    #         target    = (entry_price - target_dist) if fixed_target else 0.0
+
+    #     return stop_loss, target
+
     def _calculate_levels(
-        self,
-        signal: str,
-        entry_price: float,
-        atr: float,
-        profile: str,
-        fixed_target: bool,
-    ) -> tuple[float, float]:
+            self,
+            signal: str,
+            entry_price: float,
+            atr: float,
+            profile: str,
+            fixed_target: bool,
+            strategy_name: str,
+            pct_change_50: float,
+            vetoed: bool,
+            confidence: float,          
+        ) -> tuple[float, float]:
         """
-        Aggressive: stop = 1.5×ATR, target = 3×ATR (1:2 R:R on 1.5× base)
-        Conservative (Turtle): stop = 2×ATR, target = 0 (profits run, no fixed target)
+        Stop widens and target shrinks proportionally as confidence falls.
+        At confidence=1.0 → no adjustment.
+        At confidence=0.5 (floor) → stop 50% wider, target 50% smaller.
         """
-        if signal == "HOLD" or entry_price == 0:
+        if signal == "HOLD" or entry_price == 0 or vetoed:
             return 0.0, 0.0
 
+        # ── Confidence scalars ────────────────────────────────────────────────────
+        # Stop: wider when less confident — inverse of confidence
+        stop_conf_mult   = 1.0 + (1.0 - confidence) * self.CONFIDENCE_LEVEL_SENSITIVITY
+        # Target: smaller when less confident — direct scale
+        target_conf_mult = confidence
+
         if profile == "Conservative":
-            stop_dist = self.CON_ATR_STOP_MULT * atr
-            target_dist = 0.0  # Turtle lets profits run — no fixed target
-        else:
-            stop_dist   = self.AGG_ATR_STOP_MULT * atr
-            target_dist = self.AGG_RISK_REWARD * stop_dist
+            stop_dist = self.CON_ATR_STOP_MULT * atr * stop_conf_mult
+
+            if strategy_name == "200 MA Macro Pullback Accumulation":
+                macro_drop_usd = abs(pct_change_50 / 100) * entry_price
+                target_dist    = (macro_drop_usd * 0.50) * target_conf_mult
+
+            elif strategy_name == "MA Twist & Convergence Continuation":
+                target_dist = 2.0 * stop_dist * target_conf_mult
+
+            elif not fixed_target:
+                target_dist = 0.0  # Turtle — profits run, confidence irrelevant
+
+            else:
+                target_dist = self.CON_SIDEWAYS_RR * stop_dist * target_conf_mult
+
+        else:  # Aggressive
+            stop_dist   = self.AGG_ATR_STOP_MULT * atr * stop_conf_mult
+            target_dist = self.AGG_RISK_REWARD * stop_dist * target_conf_mult
+
+        # ── Minimum stop clamp (fix #2 — see below) ───────────────────────────────
+        min_stop = entry_price * self.MIN_STOP_PCT
+        stop_dist = max(stop_dist, min_stop)
 
         if signal == "BUY":
             stop_loss = entry_price - stop_dist
@@ -231,6 +554,45 @@ class RiskManagerAgent:
 
     # ── Position Sizing ───────────────────────────────────────────────────────
 
+    # def _calculate_position_size(
+    #     self,
+    #     signal: str,
+    #     confidence: float,
+    #     atr: float,
+    #     price: float,
+    #     open_positions: int,
+    #     profile: str,
+    # ) -> float:
+    #     """
+    #     Both profiles: position_size = max_loss_usd / stop_distance × price
+    #     Aggressive   : scaled by confidence + exposure penalty + hard cap
+    #     Conservative : Turtle 2% ATR unit rule — mechanical, no confidence scaling
+    #     """
+    #     if signal == "HOLD" or price == 0 or atr == 0:
+    #         return 0.0
+
+    #     if profile == "Conservative":
+    #         stop_dist    = self.CON_ATR_STOP_MULT * atr
+    #         max_loss_usd = self.total_equity * self.CON_RISK_PCT
+    #         raw_units    = max_loss_usd / stop_dist
+    #         raw_notional = raw_units * price
+    #         hard_cap     = self.total_equity * self.CON_MAX_POSITION_PCT
+    #         return min(raw_notional, hard_cap)
+
+    #     else:  # Aggressive
+    #         stop_dist    = self.AGG_ATR_STOP_MULT * atr
+    #         max_loss_usd = self.total_equity * self.AGG_MAX_LOSS_PCT
+    #         raw_units    = max_loss_usd / stop_dist
+    #         raw_notional = raw_units * price
+
+    #         confidence_scalar = confidence
+    #         exposure_scalar   = max(0.45, 1.0 - (open_positions * 0.15))
+
+    #         sized    = raw_notional * confidence_scalar * exposure_scalar
+    #         hard_cap = self.total_equity * self.AGG_MAX_POSITION_PCT
+    #         return min(sized, hard_cap)
+
+
     def _calculate_position_size(
         self,
         signal: str,
@@ -240,38 +602,35 @@ class RiskManagerAgent:
         open_positions: int,
         profile: str,
     ) -> float:
-        """
-        Both profiles use: position_size = max_loss_usd / stop_distance × price
-        Aggressive: scaled by confidence + exposure penalty + hard cap
-        Conservative: Turtle's 2% ATR unit rule, no confidence scaling
-                      (Turtle sizing is mechanical, not confidence-weighted)
-        """
         if signal == "HOLD" or price == 0 or atr == 0:
             return 0.0
 
+        # ── Minimum stop clamp applied here too for sizing consistency ────────────
+        stop_dist = max(
+            (self.CON_ATR_STOP_MULT if profile == "Conservative" else self.AGG_ATR_STOP_MULT) * atr,
+            price * self.MIN_STOP_PCT
+        )
+
         if profile == "Conservative":
-            stop_dist    = self.CON_ATR_STOP_MULT * atr
             max_loss_usd = self.total_equity * self.CON_RISK_PCT
             raw_units    = max_loss_usd / stop_dist
             raw_notional = raw_units * price
-            hard_cap     = self.total_equity * self.CON_MAX_POSITION_PCT
-            # Turtle sizing is mechanical — no confidence or exposure scaling
-            return min(raw_notional, hard_cap)
+
+            # Mild confidence scalar: 0.70 at floor (0.50) → 1.0 at full (1.0).
+            # Conservative stays mechanical but not completely blind to conviction.
+            confidence_scalar = 0.70 + (confidence - self.CONFIDENCE_FLOOR) * 0.60
+            sized    = raw_notional * confidence_scalar
+            hard_cap = self.total_equity * self.CON_MAX_POSITION_PCT
+            return min(sized, hard_cap)
 
         else:  # Aggressive
-            stop_dist    = self.AGG_ATR_STOP_MULT * atr
-            max_loss_usd = self.total_equity * self.AGG_MAX_LOSS_PCT
-            raw_units    = max_loss_usd / stop_dist
-            raw_notional = raw_units * price
-
-            # Confidence scalar: more sure → larger size
-            confidence_scalar = confidence  # already >= 0.50 post-veto
-
-            # Exposure penalty: each open position reduces size by 15%
-            exposure_scalar = max(0.45, 1.0 - (open_positions * 0.15))
-
-            sized    = raw_notional * confidence_scalar * exposure_scalar
-            hard_cap = self.total_equity * self.AGG_MAX_POSITION_PCT
+            max_loss_usd      = self.total_equity * self.AGG_MAX_LOSS_PCT
+            raw_units         = max_loss_usd / stop_dist
+            raw_notional      = raw_units * price
+            confidence_scalar = confidence
+            exposure_scalar   = max(0.45, 1.0 - (open_positions * 0.15))
+            sized             = raw_notional * confidence_scalar * exposure_scalar
+            hard_cap          = self.total_equity * self.AGG_MAX_POSITION_PCT
             return min(sized, hard_cap)
 
     # ── Helpers ───────────────────────────────────────────────────────────────
@@ -293,17 +652,37 @@ class RiskManagerAgent:
         position_size: float,
         profile: str,
         veto_reasons: list[str],
+        adx_value: float,
+        ema200_slope: str,
+        ma_converging: bool,
+        ma_stack: str,
+        vetoed: bool,
     ) -> str:
-        target_str = f"{target:.4f}" if target > 0 else "OPEN (profits run)"
+        if vetoed:
+            target_str    = "N/A"
+            stop_loss_str = "N/A"
+            size_str      = "N/A"
+        else:
+            target_str    = f"{target:.4f}" if target > 0 else "OPEN (profits run)"
+            stop_loss_str = f"{stop_loss:.4f}"
+            size_str      = f"${position_size:.2f}"
+
         lines = [
             f"[{profile.upper()}] {analyst_signal.asset_name} | "
             f"ANALYST: {analyst_signal.signal} → FINAL: {final_signal}",
-            f"STRATEGY: {analyst_signal.strategy_used} | CONF: {analyst_signal.confidence:.2f}",
-            f"ENTRY: {entry} | SL: {stop_loss:.4f} | TP: {target_str} | SIZE: ${position_size:.2f}",
-            f"RSI: {rsi:.1f} | ATR: {atr} | SENTIMENT: {sentiment:.2f}",
+            f"STRATEGY: {analyst_signal.strategy_used} | "
+            f"CONF: {analyst_signal.confidence:.2f}",
+            f"ENTRY: {entry} | SL: {stop_loss_str} | "
+            f"TP: {target_str} | SIZE: {size_str}",
+            f"RSI(14): {rsi:.1f} | ATR: {atr} | "
+            f"SENTIMENT: {sentiment:.2f} | ADX: {adx_value:.1f}",
+            f"EMA200 Slope: {ema200_slope} | "
+            f"MA Converging: {ma_converging} | MA Stack: {ma_stack}",
         ]
+
         if veto_reasons:
             lines.append("VETOES: " + " | ".join(veto_reasons))
         else:
             lines.append("STATUS: All checks passed.")
+
         return "\n".join(lines)
