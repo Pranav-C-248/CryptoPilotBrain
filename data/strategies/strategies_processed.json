@@ -321,5 +321,266 @@
         "Slow EMA"
       ]
     }
+  },
+  {
+    "metadata": {
+      "name": "ATR Expansion Breakout",
+      "regime": "Volatile"
+    },
+    "theory": {
+      "principle": "Volatility is cyclical — periods of compression are followed by explosive expansion. This strategy targets the exact moment ATR begins expanding beyond its recent average, confirming that kinetic energy is being released directionally. By anchoring entry to a simultaneous Donchian level breach, it filters pure noise expansions from genuine directional moves.",
+      "market_inefficiency": "Delayed retail reaction to volatility regime shifts. When ATR begins expanding, algorithms and institutional flow are already positioned — retail participants are still anchored to the prior compressed range, creating a momentum vacuum that accelerates the move.",
+      "crypto_adaptation": "ATR expansions in crypto are sharper and shorter-lived than in equities. Use tight trailing stops rather than fixed take-profit levels. Prioritize the 4h timeframe — ATR expansion signals on lower timeframes are frequently noise-driven by liquidation cascades rather than genuine directional intent.",
+      "synergy_markers": {
+        "works_well_with": [
+          "Volume Spike Confirmation",
+          "Donchian Channel Breaches",
+          "EMA directional alignment"
+        ],
+        "conflicts_with": [
+          "Mean Reversion Logic",
+          "Low ATR / Compression Environments",
+          "ADX < 20 (non-trending)"
+        ]
+      }
+    },
+    "mechanics": {
+      "logic_gate": {
+        "entry_primary": [
+          "ATR is currently greater than its 5-period average (atr_expanding = True).",
+          "Price simultaneously breaks above the 20-day Donchian high (long) or below the 20-day Donchian low (short)."
+        ],
+        "entry_confirmation": [
+          "Volume spike present (volume.is_spike = True), confirming institutional participation.",
+          "EMA(20) slope is aligned with the breakout direction (price_rel and ema.slope in agreement)."
+        ]
+      },
+      "exit_logic": {
+        "take_profit": "Trailing stop based on 1.5x ATR from the entry candle's high/low, adjusted each candle as ATR evolves.",
+        "exit_condition": "ATR begins contracting back below its 5-period average (atr_expanding flips to False), or price reclaims the breached Donchian level on a closing basis."
+      }
+    },
+    "operational_meta": {
+      "risk_profile": "Aggressive",
+      "crypto_score": 78,
+      "stock_score": 72,
+      "crypto_verdict": "Strong in crypto volatile regimes — use tight trailing stops",
+      "dependency_indicators": [
+        "ATR (14)",
+        "ATR 5-period average",
+        "20-day Donchian Channels (High/Low)",
+        "Volume",
+        "EMA (20)"
+      ]
+    }
+  },
+  {
+    "metadata": {
+      "name": "Donchian Volatility Range Breach",
+      "regime": "Volatile"
+    },
+    "theory": {
+      "principle": "When price violates the outermost boundary of a 55-day Donchian channel during a period of expanding ATR, it signals a macro structural break rather than a routine range oscillation. The 55-day lookback filters out medium-term noise, ensuring only genuine volatility-driven regime changes trigger an entry. This is distinct from the 20-day Volatility Breakout — it targets rarer, higher-conviction macro inflection points.",
+      "market_inefficiency": "Mass stop-loss clustering beyond multi-week extremes. When price breaches a 55-day high or low with expanding ATR, stop hunts cascade into genuine momentum as overleveraged positions are forcibly liquidated, fueling an outsized directional move.",
+      "crypto_adaptation": "The 55-day breach in crypto often coincides with major narrative catalysts (regulatory events, ETF flows, halving momentum). Volume confirmation is mandatory — false 55-day breaches on thin volume are common in crypto and frequently reverse violently within 1-2 candles.",
+      "synergy_markers": {
+        "works_well_with": [
+          "ATR Expansion signals",
+          "Volume Capitulation Spikes",
+          "EMA(200) macro context"
+        ],
+        "conflicts_with": [
+          "Sideways / Range-bound conditions",
+          "Low-volume breaches",
+          "Mean Reversion strategies"
+        ]
+      }
+    },
+    "mechanics": {
+      "logic_gate": {
+        "entry_primary": [
+          "Price closes above the 55-day Donchian high (long) or below the 55-day Donchian low (short).",
+          "ATR is expanding (atr_expanding = True) at the time of the breach."
+        ],
+        "entry_confirmation": [
+          "Volume capitulation spike present (is_capitulation_spike = True, volume > 2x 20-period average).",
+          "The 20-day Donchian level was also breached in the same direction, confirming multi-timeframe structural alignment."
+        ]
+      },
+      "exit_logic": {
+        "take_profit": "Scale out 50% at 2x ATR extension from entry; trail the remainder using the 20-day Donchian opposite extreme.",
+        "exit_condition": "Price closes back inside the 55-day Donchian channel, invalidating the structural break, or hard stop at 2x ATR from entry."
+      }
+    },
+    "operational_meta": {
+      "risk_profile": "Aggressive",
+      "crypto_score": 74,
+      "stock_score": 80,
+      "crypto_verdict": "Valid but requires strict volume confirmation — unconfirmed 55-day breaches are frequent crypto traps",
+      "dependency_indicators": [
+        "55-day Donchian Channels (High/Low)",
+        "20-day Donchian Channels (High/Low)",
+        "ATR (14)",
+        "ATR 5-period average",
+        "Volume"
+      ]
+    }
+  },
+  {
+    "metadata": {
+      "name": "RSI Divergence Fade",
+      "regime": "Sideways"
+    },
+    "theory": {
+      "principle": "In a range-bound market, price frequently tags Donchian extremes while RSI momentum fails to confirm the new extreme — a classic divergence. This divergence reveals that the move is exhausting: fewer participants are willing to push price further, and a snap-back toward the range midpoint is statistically probable. The ADX acts as a gatekeeper to ensure this signal is only acted upon in genuinely non-trending conditions.",
+      "market_inefficiency": "Momentum exhaustion at range boundaries. Retail traders chase price to the extreme while smart money quietly fades the move, knowing that without trend confirmation (ADX > 25), the range will reassert itself.",
+      "crypto_adaptation": "Divergences in crypto resolve faster and more violently than in equities. Target the EMA(20) or BB midline as the take-profit rather than the opposite range extreme. Avoid this signal entirely if ATR is expanding — a divergence during expanding volatility often precedes a breakout rather than a reversal.",
+      "synergy_markers": {
+        "works_well_with": [
+          "ADX non-trending gate (ADX < 25)",
+          "Bollinger Band position labels",
+          "Donchian 10/20-day extremes"
+        ],
+        "conflicts_with": [
+          "Trending markets (ADX > 25)",
+          "ATR expansion environments",
+          "Breakout momentum strategies"
+        ]
+      }
+    },
+    "mechanics": {
+      "logic_gate": {
+        "entry_primary": [
+          "Price tags or exceeds the 10-day Donchian high (bearish divergence) or low (bullish divergence).",
+          "RSI(14) trend is moving in the opposite direction to price — price makes a new extreme but RSI trend is Decreasing (bearish div) or Increasing (bullish div) relative to 5 candles prior."
+        ],
+        "entry_confirmation": [
+          "ADX is below 25 (adx.non_trending = True), confirming a non-trending environment.",
+          "Market structure is Sideways/Ranging, not Uptrend or Downtrend."
+        ]
+      },
+      "exit_logic": {
+        "take_profit": "EMA(20) value as primary target; BB midline as secondary target if price has not yet reached EMA(20).",
+        "exit_condition": "Stop loss placed just beyond the Donchian extreme that triggered the divergence. Exit immediately if ADX crosses above 25, invalidating the sideways regime assumption."
+      }
+    },
+    "operational_meta": {
+      "risk_profile": "Conservative",
+      "crypto_score": 68,
+      "stock_score": 78,
+      "crypto_verdict": "Use shorter take-profit targets in crypto — divergences resolve quickly and often incompletely",
+      "dependency_indicators": [
+        "RSI (14)",
+        "ADX (14)",
+        "10-day Donchian Channels (High/Low)",
+        "EMA (20)",
+        "Bollinger Bands (20, 2SD)"
+      ]
+    }
+  },
+  {
+    "metadata": {
+      "name": "Donchian Range Oscillation",
+      "regime": "Sideways"
+    },
+    "theory": {
+      "principle": "In the absence of trend, price is gravitationally pulled between the upper and lower extremes of its recent range. The 10 and 20-day Donchian channels define this range mathematically. When price touches an extreme with RSI confirming an overbought or oversold condition and volume is below average (indicating a lack of conviction), a mechanical fade back to the range midpoint offers a high-probability, low-risk oscillation trade.",
+      "market_inefficiency": "Liquidity hunting at range edges. Market makers push price to Donchian extremes to trigger retail stop-losses and limit orders, then reverse back into the range once that liquidity is absorbed. Below-average volume at extremes is the tell that no genuine breakout conviction exists.",
+      "crypto_adaptation": "Works well on BTC and ETH during macro consolidation phases between halving cycles. On altcoins, Donchian ranges are less reliable due to thin liquidity — restrict this strategy to top 10 market cap assets. Volume confirmation (below average) is critical; crypto fakeouts at range extremes on high volume are common.",
+      "synergy_markers": {
+        "works_well_with": [
+          "ADX non-trending gate (ADX < 25)",
+          "RSI overbought/oversold readings",
+          "Below-average volume at extremes"
+        ],
+        "conflicts_with": [
+          "Trending markets",
+          "Volume spikes at the boundary",
+          "ATR expansion environments"
+        ]
+      }
+    },
+    "mechanics": {
+      "logic_gate": {
+        "entry_primary": [
+          "Price touches or exceeds the 10-day Donchian high (fade short) or 10-day Donchian low (fade long).",
+          "ADX is below 25 (adx.non_trending = True)."
+        ],
+        "entry_confirmation": [
+          "RSI(14) is above 65 (at high extreme) or below 35 (at low extreme), confirming momentum exhaustion.",
+          "Current volume is below the 50-period volume average, indicating the move lacks institutional conviction."
+        ]
+      },
+      "exit_logic": {
+        "take_profit": "20-day Donchian midpoint (average of high_20 and low_20) as primary target. Scale 50% at EMA(20) and hold the remainder to the opposite Donchian extreme if momentum continues.",
+        "exit_condition": "Stop loss placed just beyond the 20-day Donchian extreme in the entry direction. Exit immediately if volume spikes above 1.5x average — signals potential breakout, invalidating the range assumption."
+      }
+    },
+    "operational_meta": {
+      "risk_profile": "Conservative",
+      "crypto_score": 65,
+      "stock_score": 80,
+      "crypto_verdict": "Restrict to large-cap crypto assets during confirmed consolidation phases only",
+      "dependency_indicators": [
+        "10-day Donchian Channels (High/Low)",
+        "20-day Donchian Channels (High/Low)",
+        "ADX (14)",
+        "RSI (14)",
+        "Volume"
+      ]
+    }
+  },
+  {
+    "metadata": {
+      "name": "EMA20 Mean Reversion",
+      "regime": "Sideways"
+    },
+    "theory": {
+      "principle": "EMA(20) is the most widely tracked short-term fair value metric. In a sideways, non-trending market, extreme deviations from EMA(20) are statistically unsustainable — price is effectively a rubber band being stretched from its equilibrium. When RSI confirms the overextension and ADX validates the non-trending context, a reversion back to EMA(20) — proxied by the BB midline — is the highest-probability trade available in a ranging environment.",
+      "market_inefficiency": "Overreaction to short-term catalysts in a directionless market. Without a macro trend to sustain the move, fear or greed-driven deviations from the mean are rapidly mean-reverted as the dominant range-bound participants reenter at statistically attractive prices.",
+      "crypto_adaptation": "EMA(20) mean reversion in crypto requires the BB band position to confirm the overextension — price must be at or beyond the upper or lower BB band, not merely above or below EMA(20). Crypto deviations from EMA(20) are far larger than in equities and can persist for multiple candles before reverting. Use the BB midline as the take-profit, not a fixed pip target.",
+      "synergy_markers": {
+        "works_well_with": [
+          "Bollinger Band outer band touches",
+          "ADX non-trending gate (ADX < 25)",
+          "RSI extreme readings (>70 or <30)"
+        ],
+        "conflicts_with": [
+          "Trending markets (ADX > 25)",
+          "EMA(20) with a steep slope",
+          "Momentum breakout strategies"
+        ]
+      }
+    },
+    "mechanics": {
+      "logic_gate": {
+        "entry_primary": [
+          "Price is in 'Above Upper Band' or 'Below Lower Band' position relative to BB(20, 2SD) — confirming a statistically extreme deviation from EMA(20)/BB midline.",
+          "EMA(20) slope is flat or nearly flat (confirmed by ema.slope being inconsistent with a strong trend)."
+        ],
+        "entry_confirmation": [
+          "RSI(14) is above 68 (short entry) or below 32 (long entry), confirming momentum overextension.",
+          "ADX is below 25 (adx.non_trending = True), validating the non-trending regime.",
+          "Market structure is Sideways/Ranging."
+        ]
+      },
+      "exit_logic": {
+        "take_profit": "BB midline (bb_mid), which is the 20-period SMA and the closest proxy to EMA(20) equilibrium. This is the primary and only take-profit target.",
+        "exit_condition": "Stop loss placed 1x ATR beyond the entry candle's extreme (high for shorts, low for longs). Exit immediately if ADX crosses above 25 or market structure shifts to Uptrend/Downtrend."
+      }
+    },
+    "operational_meta": {
+      "risk_profile": "Conservative",
+      "crypto_score": 72,
+      "stock_score": 82,
+      "crypto_verdict": "Solid in crypto sideways phases — require BB outer band touch as mandatory filter, not just EMA deviation",
+      "dependency_indicators": [
+        "EMA (20)",
+        "Bollinger Bands (20, 2SD)",
+        "RSI (14)",
+        "ADX (14)",
+        "ATR (14)"
+      ]
+    }
   }
 ]
