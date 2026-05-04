@@ -300,145 +300,203 @@ class AnalystAgent:
         vol     = market_data.get('volatility', {})     
         
         # ── Prompts ───────────────────────────────────────────────────────────
-        system_msg = """You are an Institutional Grade Quantitative Analyst.
+        system_msg = """<role>You are an Institutional Grade Quantitative Analyst.</role>
 
-YOUR THINKING PROCESS — follow these steps IN ORDER before producing any output:
+<instructions>
+Follow these steps IN ORDER before producing any output.
 
-STEP 1 — REGIME CHECK:
-Identify the market regime (Trending / Volatile / Sideways). State it explicitly.
-Base this on market_structure, ATR/Price%, and volume spike flag.
+<step n="1" name="REGIME_CHECK">
+Identify the market regime. It will be provided as a pre-computed value in the data packet.
+Verify it against market_structure, ATR/Price%, and volume spike flag.
+State the regime explicitly: Trending, Volatile, or Sideways.
+</step>
 
-STEP 2 — STRATEGY SELECTION:
-Review each strategy candidate from the STRATEGY CANDIDATES section.
+<step n="2" name="STRATEGY_SELECTION">
+Review each strategy candidate from the strategy_candidates section.
 For each one ask:
-a) Does its regime tag match the current regime?
-b) Does the current market satisfy its entry_primary condition?
-c) Does anything in its conflicts_with list describe the current market? If yes, DISCARD it.
+  a) Does its regime tag match the current regime?
+  b) Does the current market satisfy its entry_primary condition?
+  c) Does anything in its conflicts_with list describe the current market? If yes, DISCARD it.
 Select the single best-fit strategy. If none fit cleanly, write "fallback".
+</step>
 
-STEP 3 — CONFLUENCE CHECK:
+<step n="3" name="CONFLUENCE_CHECK">
 List every entry_confirmation condition from the chosen strategy.
 For each condition state explicitly: does the current packet data satisfy it? YES or NO.
 Count satisfied conditions vs total. Be precise — cite actual values from the packet.
+</step>
 
-STEP 4 — SIGNAL DECISION:
-- All or most confirmations met → consider BUY or SELL
+<step n="4" name="SIGNAL_DECISION">
+Decision rules:
+- All or most confirmations met → consider BUY
 - Fewer than half met → HOLD
 - Any hard conflict present → HOLD
 - Sideways regime → HOLD unless confluence is unambiguous and strong
+</step>
 
-STEP 5 — SYNTHESIZE CONDITIONS:
-Write:
-- entry_condition: a readable if-statement using only indicator names visible in the packet.
-    Example format: "rsi_prev < 30 and rsi_current > 30 and price <= bb_lower * 1.01"
-- exit_condition: a readable if-statement for when to exit the trade.
-    Example format: "price < stop_loss or price > take_profit_target"
+<step n="5" name="SYNTHESIZE_CONDITIONS">
+Write entry_condition and exit_condition as pure logical mathematical expressions.
+CRITICAL: DO NOT write conversational English, explanations, or sentences in these fields. If you cannot form a valid mathematical condition, output exactly "False" or "HOLD".
+You MUST use ONLY the following variable names (these are the exact column names available at execution time):
 
-STEP 6 — WRITE YOUR OUTPUT:
-Populate JSON in this exact order:
-1. internal_monologue — full Step 1–4 reasoning, cite at least 4 metric values from the packet
-2. strategy_used      — exact strategy name from the candidates, or "fallback"
-3. reasoning          — concise 2–3 sentence summary of why this signal was chosen
-4. entry_condition    — from Step 5
-5. exit_condition     — from Step 5
-6. signal             — BUY, SELL, or HOLD
-7. confidence         — float 0.0–1.0
+<available_variables>
+price, open, high, low, close, volume,
+rsi, rsi5, ema9, ema20, ema50, ema200,
+bb_upper, bb_lower, bb_mid, bb40_upper, bb40_lower,
+adx, atr, atr_avg_5, atr_expanding
+</available_variables>
 
-RULES:
+To reference the previous candle's value, the backtester does NOT have _prev columns.
+So use comparisons against thresholds only (e.g. "rsi < 30" not "rsi_prev < 30").
+
+<formatting_rules>
+- Use standard Python operators: <, >, <=, >=, ==, and, or
+- Example format only (DO NOT COPY THIS EXACT LOGIC): <entry_condition>price > ema20 and adx > 25</entry_condition>
+- You MUST derive the exact conditions directly from the specific rules of the chosen strategy!
+</formatting_rules>
+</step>
+
+<step n="6" name="WRITE_OUTPUT">
+Produce a JSON object with exactly these 7 keys in this order.
+Do NOT include asset_name or valid_till — they are injected automatically.
+
+<output_schema>
+{
+  "internal_monologue": "Full Step 1-4 reasoning. Cite at least 4 metric values from the packet.",
+  "strategy_used": "Exact strategy name from the candidates, or fallback",
+  "reasoning": "Concise 2-3 sentence summary of why this signal was chosen",
+  "entry_condition": "From Step 5 — uses only available_variables",
+  "exit_condition": "From Step 5 — uses only available_variables",
+  "signal": "BUY or HOLD",
+  "confidence": 0.0
+}
+</output_schema>
+</step>
+</instructions>
+
+<rules>
 - confidence > 0.8 only if ALL entry_confirmation conditions are met
 - confidence > 0.6 only if the majority of entry_confirmation conditions are met
 - signal must be directly derivable from internal_monologue — no contradictions
 - Do not favour or penalise any strategy based on its name — evaluate purely on conditions
-- Output valid JSON only. No markdown fences. No commentary outside the JSON."""
+- Output valid JSON only. No markdown fences. No commentary outside the JSON.
+</rules>"""
 
-        user_msg = f"""ASSET: {asset_name}
-VALID_TILL: {valid_till}
+        user_msg = f"""<market_data asset="{asset_name}" valid_till="{valid_till}">
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-MARKET CONTEXT PACKET
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<regime detected="{regime_str}" />
 
-[SNAPSHOT]
-Open: {market_data['snapshot']['open']} | High: {market_data['snapshot']['high']} | Low: {market_data['snapshot']['low']} | Close: {price}
+<snapshot>
+  <open>{market_data['snapshot']['open']}</open>
+  <high>{market_data['snapshot']['high']}</high>
+  <low>{market_data['snapshot']['low']}</low>
+  <close>{price}</close>
+</snapshot>
 
-[STRUCTURE]
-Market Structure : {structure}
-50-Candle Change : {market_data['trends']['pct_change_50']}%
-10-Candle Change : {market_data['trends']['pct_change_10']}%
+<structure>
+  <market_structure>{structure}</market_structure>
+  <pct_change_50>{market_data['trends']['pct_change_50']}%</pct_change_50>
+  <pct_change_10>{market_data['trends']['pct_change_10']}%</pct_change_10>
+</structure>
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-MEAN REVERSION INDICATORS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<indicators type="mean_reversion">
+  <rsi period="14">
+    <current>{rsi_current}</current>
+    <prev>{rsi_prev}</prev>
+    <avg_50>{rsi_avg}</avg_50>
+    <trend>{rsi_trend}</trend>
+    <narrative>{rsi_narrative}</narrative>
+  </rsi>
 
-[RSI — 14 Period]
-Current : {rsi_current} | Prev: {rsi_prev} | 50-Avg: {rsi_avg} | Trend: {rsi_trend}
-{rsi_narrative}
+  <rsi period="5">
+    <current>{rsi5_current}</current>
+    <prev>{rsi5_prev}</prev>
+    <trend>{rsi5_trend}</trend>
+    <narrative>{rsi5_narrative}</narrative>
+  </rsi>
 
-[RSI — 5 Period]
-Current : {rsi5_current} | Prev: {rsi5_prev} | Trend: {rsi5_trend}
-{rsi5_narrative}
+  <bollinger_bands period="20" std="2">
+    <position>{bands.get('position_label', 'N/A')}</position>
+    <upper>{bands.get('upper', 'N/A')}</upper>
+    <mid>{bands.get('mid', 'N/A')}</mid>
+    <lower>{bands.get('lower', 'N/A')}</lower>
+    <narrative>{bb_narrative}</narrative>
+  </bollinger_bands>
 
-[BOLLINGER BANDS — 20 Period, 2σ]
-Position : {bands.get('position_label', 'N/A')} | Upper: {bands.get('upper', 'N/A')} | Mid: {bands.get('mid', 'N/A')} | Lower: {bands.get('lower', 'N/A')}
-{bb_narrative}
+  <bollinger_bands period="40" std="2">
+    <position>{bands40.get('position_label', 'N/A')}</position>
+    <upper>{bands40.get('upper', 'N/A')}</upper>
+    <lower>{bands40.get('lower', 'N/A')}</lower>
+    <narrative>{bb40_narrative}</narrative>
+  </bollinger_bands>
+</indicators>
 
-[BOLLINGER BANDS — 40 Period, 2σ]
-Position : {bands40.get('position_label', 'N/A')} | Upper: {bands40.get('upper', 'N/A')} | Lower: {bands40.get('lower', 'N/A')}
-{bb40_narrative}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TREND STRENGTH
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<indicators type="trend_strength">
+  <adx period="14">
+    <value>{adx.get('value', 'N/A')}</value>
+    <non_trending>{adx.get('non_trending', 'N/A')}</non_trending>
+  </adx>
 
-[ADX — 14 Period]
-Value        : {adx.get('value', 'N/A')} | Non-Trending (ADX < 25): {adx.get('non_trending', 'N/A')}
+  <volatility>
+    <atr>{atr}</atr>
+    <atr_price_pct>{round(atr_pct * 100, 3)}%</atr_price_pct>
+    <atr_interpretation>{'high — expansion confirmed' if atr_pct > 0.02 else 'low — compression'}</atr_interpretation>
+    <atr_avg_5>{vol.get('atr_avg_5', 'N/A')}</atr_avg_5>
+    <atr_expanding>{vol.get('atr_expanding', 'N/A')}</atr_expanding>
+  </volatility>
 
-[VOLATILITY]
-ATR          : {atr} | ATR/Price: {round(atr_pct * 100, 3)}% ({'high — expansion confirmed' if atr_pct > 0.02 else 'low — compression'})
-ATR Avg(5)   : {vol.get('atr_avg_5', 'N/A')} | Expanding: {vol.get('atr_expanding', 'N/A')}
+  <volume>
+    <current>{volume.get('current', 'N/A')}</current>
+    <avg_50>{volume.get('avg_50', 'N/A')}</avg_50>
+    <avg_20>{volume.get('avg_20', 'N/A')}</avg_20>
+    <is_spike_1_5x>{volume.get('is_spike', 'N/A')}</is_spike_1_5x>
+    <is_capitulation_2x>{volume.get('is_capitulation_spike', 'N/A')}</is_capitulation_2x>
+  </volume>
+</indicators>
 
-[VOLUME]
-Current      : {volume.get('current', 'N/A')} | 50-Avg: {volume.get('avg_50', 'N/A')} | 20-Avg: {volume.get('avg_20', 'N/A')}
-Spike (1.5x) : {volume.get('is_spike', 'N/A')}
-Capitulation (2x 20-Avg): {volume.get('is_capitulation_spike', 'N/A')}
+<indicators type="ema_state">
+  <ema period="20" role="primary_anchor">
+    <value>{ema.get('value', 'N/A')}</value>
+    <slope>{ema.get('slope', 'N/A')}</slope>
+    <price_rel>{ema.get('price_rel', 'N/A')}</price_rel>
+  </ema>
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-EMA STATE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  <ema_multi periods="9/20/50">
+    <ema9>{ema_m.get('ema9', 'N/A')}</ema9>
+    <ema9_slope>{ema_m.get('ema9_slope', 'N/A')}</ema9_slope>
+    <ema20>{ema_m.get('ema20', 'N/A')}</ema20>
+    <ema50>{ema_m.get('ema50', 'N/A')}</ema50>
+    <ema50_slope>{ema_m.get('ema50_slope', 'N/A')}</ema50_slope>
+    <converging>{ema_m.get('converging', 'N/A')}</converging>
+    <spread_pct>{ema_m.get('spread_pct', 'N/A')}%</spread_pct>
+    <stack_order>{ema_m.get('stack_order', 'N/A')}</stack_order>
+  </ema_multi>
 
-[EMA — 20 Period  |  Primary Anchor]
-Value        : {ema.get('value', 'N/A')} | Slope: {ema.get('slope', 'N/A')} | Price Relation: {ema.get('price_rel', 'N/A')}
+  <ema period="200" role="macro_anchor">
+    <value>{ema200.get('value', 'N/A')}</value>
+    <slope>{ema200.get('slope', 'N/A')}</slope>
+    <price_rel>{ema200.get('price_rel', 'N/A')}</price_rel>
+    <proximity_pct>{ema200.get('proximity_pct', 'N/A')}%</proximity_pct>
+    <near_band_2pct>{ema200.get('near_band', 'N/A')}</near_band_2pct>
+  </ema>
+</indicators>
 
-[EMA MULTI — 9 / 20 / 50 Period]
-EMA9         : {ema_m.get('ema9',  'N/A')} | Slope: {ema_m.get('ema9_slope',  'N/A')}
-EMA20        : {ema_m.get('ema20', 'N/A')}
-EMA50        : {ema_m.get('ema50', 'N/A')} | Slope: {ema_m.get('ema50_slope', 'N/A')}
-Converging   : {ema_m.get('converging', 'N/A')} | Spread: {ema_m.get('spread_pct', 'N/A')}% | Stack Order: {ema_m.get('stack_order', 'N/A')}
+<donchian_channels>
+  <channel period="10"><high>{levels.get('high_10', 'N/A')}</high><low>{levels.get('low_10', 'N/A')}</low></channel>
+  <channel period="20"><high>{levels.get('high_20', 'N/A')}</high><low>{levels.get('low_20', 'N/A')}</low></channel>
+  <channel period="50"><high>{levels.get('high_50', 'N/A')}</high><low>{levels.get('low_50', 'N/A')}</low></channel>
+  <channel period="55"><high>{levels.get('high_55', 'N/A')}</high><low>{levels.get('low_55', 'N/A')}</low></channel>
+</donchian_channels>
 
-[EMA — 200 Period  |  Macro Anchor]
-Value        : {ema200.get('value', 'N/A')} | Slope: {ema200.get('slope', 'N/A')}
-Price Rel    : {ema200.get('price_rel', 'N/A')} | Proximity: {ema200.get('proximity_pct', 'N/A')}% | Near Band (±2%): {ema200.get('near_band', 'N/A')}
+<sentiment score="{sentiment_score}" scale="0.0=Extreme_Fear | 0.5=Neutral | 1.0=Extreme_Greed" />
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TREND FOLLOWING LEVELS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-[DONCHIAN CHANNELS]
-10-Candle    : High {levels.get('high_10', 'N/A')} | Low {levels.get('low_10', 'N/A')}
-20-Candle    : High {levels.get('high_20', 'N/A')} | Low {levels.get('low_20', 'N/A')}
-50-Candle    : High {levels.get('high_50', 'N/A')} | Low {levels.get('low_50', 'N/A')}
-55-Candle    : High {levels.get('high_55', 'N/A')} | Low {levels.get('low_55', 'N/A')}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-MARKET SENTIMENT
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Sentiment Score: {sentiment_score} (0.0=Extreme Fear | 0.5=Neutral | 1.0=Extreme Greed)
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-STRATEGY CANDIDATES
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<strategy_candidates>
 {strategy_context if strategy_context else "No strategies retrieved. Apply standard institutional logic based on regime and confluence of indicators above."}
+</strategy_candidates>
 
-Now follow Steps 1 through 6 from your instructions and produce the JSON output."""
+</market_data>
+
+Follow Steps 1 through 6 from your instructions and produce the JSON output."""
         # ── LLM call ──────────────────────────────────────────────────────────
         try:
             # temporarily disabled for testing purposes

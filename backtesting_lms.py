@@ -10,6 +10,7 @@ import numpy as np
 from datetime import datetime, timezone, timedelta
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import html
 
 # Ensure imports work from src
 project_root = os.path.dirname(os.path.abspath(__file__))
@@ -37,11 +38,16 @@ class BacktestEngine:
         self.analyst = AnalystAgent(knowledge_base=self.kb)
         self.risk_mgr = RiskManagerAgent(total_equity=initial_balance)
         self.cache = self._load_cache()
-        self.log_file = os.path.join(project_root, "tests", "logs", f"backtest_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt")
+        log_ts = datetime.now().strftime('%Y%m%d_%H%M%S')
+        self.log_file = os.path.join(project_root, "tests", "logs", f"backtest_{log_ts}.txt")
+        self.trade_log_file = os.path.join(project_root, "tests", "logs", f"backtest_{log_ts}_trade.txt")
         
-        # Initialize log file
+        # Initialize log files
+        start_header = f"=== BACKTEST START: {datetime.now(timezone.utc).isoformat()} ===\n"
         with open(self.log_file, "w") as f:
-            f.write(f"=== BACKTEST START: {datetime.now(timezone.utc).isoformat()} ===\n")
+            f.write(start_header)
+        with open(self.trade_log_file, "w") as f:
+            f.write(start_header)
         
     def _load_cache(self):
         if os.path.exists(CACHE_FILE):
@@ -70,6 +76,44 @@ class BacktestEngine:
                 f.write(f"Risk audit summary: {verdict.audit_summary}\n")
             f.write("-" * 50 + "\n")
 
+    def _log_trade(self, action: str, trade: dict, current_price: float = None):
+        """Log detailed trade execution info to the log file."""
+        with open(self.trade_log_file, "a") as f:
+            f.write("\n" + "=" * 60 + "\n")
+            if action == "ENTRY":
+                f.write(f">>> TRADE OPENED [{trade.get('asset_name', 'N/A')}]\n")
+                f.write(f"    Time:          {trade['entry_time']}\n")
+                f.write(f"    Direction:     BUY\n")
+                f.write(f"    Entry Price:   ${trade['entry_price']:.2f}\n")
+                f.write(f"    Position Size: ${trade['position_size']:.2f}\n")
+                f.write(f"    Target:        ${trade['target']:.2f}\n")
+                f.write(f"    Stop Loss:     ${trade['stop_loss']:.2f}\n")
+                risk_amt = ((trade['entry_price'] - trade['stop_loss']) / trade['entry_price']) * trade['position_size']
+                reward_amt = ((trade['target'] - trade['entry_price']) / trade['entry_price']) * trade['position_size']
+                rr_ratio = reward_amt / risk_amt if risk_amt > 0 else float('inf')
+                f.write(f"    Risk ($):      ${risk_amt:.2f}\n")
+                f.write(f"    Reward ($):    ${reward_amt:.2f}\n")
+                f.write(f"    R:R Ratio:     {rr_ratio:.2f}\n")
+                f.write(f"    Entry Cond:    {trade.get('entry_condition', 'N/A')}\n")
+                f.write(f"    Exit Cond:     {trade.get('exit_condition', 'N/A')}\n")
+                f.write(f"    Balance After: ${self.balance:.2f}\n")
+            elif action == "EXIT":
+                f.write(f"<<< TRADE CLOSED [{trade.get('asset_name', 'N/A')}]\n")
+                f.write(f"    Entry Time:    {trade['entry_time']}\n")
+                f.write(f"    Exit Time:     {trade['exit_time']}\n")
+                f.write(f"    Entry Price:   ${trade['entry_price']:.2f}\n")
+                f.write(f"    Exit Price:    ${trade['exit_price']:.2f}\n")
+                f.write(f"    Position Size: ${trade['position_size']:.2f}\n")
+                f.write(f"    Target:        ${trade['target']:.2f}\n")
+                f.write(f"    Stop Loss:     ${trade['stop_loss']:.2f}\n")
+                pnl = trade['pnl']
+                pnl_pct = (pnl / trade['position_size']) * 100 if trade['position_size'] > 0 else 0
+                result_emoji = "✅" if pnl > 0 else "❌"
+                f.write(f"    PnL:           ${pnl:.2f} ({pnl_pct:+.2f}%) {result_emoji}\n")
+                f.write(f"    Exit Reason:   {trade['exit_reason']}\n")
+                f.write(f"    Balance After: ${self.balance:.2f}\n")
+            f.write("=" * 60 + "\n")
+
 
 
     def _evaluate_condition(self, condition_str: str, locals_dict: dict) -> bool:
@@ -78,16 +122,26 @@ class BacktestEngine:
         Supports expressions like 'RSI < 70', 'price > bb_lower * 1.01 and rsi < 30',
         using only variables present in locals_dict.
         """
-        if not condition_str or condition_str.lower() in ("true", "none", "n/a"):
+        if isinstance(condition_str, bool):
+            return condition_str
+            
+        if not condition_str:
             return True
-        if condition_str.lower() in ("false",):
+            
+        condition_str = str(condition_str)
+        condition_str = html.unescape(condition_str)
+        
+        if condition_str.lower() in ("true", "none", "n/a"):
+            return True
+        if condition_str.lower() in ("false", "hold"):
             return False
 
         try:
             tree = ast.parse(condition_str, mode='eval')
             result = self._safe_eval_node(tree.body, locals_dict)
             return bool(result)
-        except Exception:
+        except Exception as e:
+            print(f"Error evaluating condition '{condition_str}': {e}")
             return False
 
     def _safe_eval_node(self, node: ast.AST, variables: dict):
@@ -100,6 +154,9 @@ class BacktestEngine:
 
         # Variable lookup
         if isinstance(node, ast.Name):
+            var_id = node.id.lower()
+            if var_id in variables:
+                return variables[var_id]
             if node.id in variables:
                 return variables[node.id]
             raise NameError(f"Unknown variable: {node.id}")
@@ -198,9 +255,9 @@ class BacktestEngine:
                 exit_triggered = False
                 exit_reason = ""
                 
-                if price <= trade['stop_loss']:
+                if row["low"] <= trade['stop_loss']:
                     exit_triggered, exit_reason = True, "Stop Loss"
-                elif price >= trade['target']:
+                elif row["high"] >= trade['target']:
                     exit_triggered, exit_reason = True, "Target"
                 elif self._evaluate_condition(trade['exit_condition'], locals_dict):
                     exit_triggered, exit_reason = True, "Dynamic Condition"
@@ -214,6 +271,7 @@ class BacktestEngine:
                     trade['pnl'] = pnl
                     self.trade_history.append(trade)
                     self.portfolio.remove(trade)
+                    self._log_trade("EXIT", trade)
                     print(f"  -> EXIT [{exit_reason}]: PnL ${pnl:.2f} | Balance: ${self.balance:.2f}")
             
             # 2. Get Context Packet
@@ -275,6 +333,7 @@ class BacktestEngine:
                             "exit_condition": signal.exit_condition
                         }
                         self.portfolio.append(trade)
+                        self._log_trade("ENTRY", trade)
                         print(f"  -> ENTRY [BUY]: Size ${pos_size:.2f} @ ${price:.2f}")
 
             # 5. Step Logging
@@ -296,6 +355,7 @@ class BacktestEngine:
                 trade['exit_reason'] = "End of Backtest"
                 trade['pnl'] = pnl
                 self.trade_history.append(trade)
+                self._log_trade("EXIT", trade)
             self.portfolio.clear()
 
         # Final record
@@ -391,7 +451,7 @@ if __name__ == "__main__":
     parser.add_argument("--data", type=str, default="tests/BTCUSDT_4h_historical.csv", help="Path to historical data CSV")
     args = parser.parse_args()
 
-    engine = BacktestEngine(initial_balance=10000)
+    engine = BacktestEngine(initial_balance=100000)
     
     # 1. Fetch & prep data
     csv_path = os.path.join(project_root, args.data)
