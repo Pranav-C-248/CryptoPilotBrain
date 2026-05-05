@@ -236,7 +236,8 @@ class BacktestEngine:
                         analyst_signal=signal,
                         market_data=packet,
                         sentiment_score=0.5,
-                        current_portfolio=self.portfolio
+                        current_portfolio=self.portfolio,
+                        available_balance=self.balance
                     )
                     print(signal,verdict)
                     
