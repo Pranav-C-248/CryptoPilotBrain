@@ -1,0 +1,1903 @@
+diff --git a/backtesting.py b/backtesting.py
+index b366382..31949a9 100644
+--- a/backtesting.py
++++ b/backtesting.py
+@@ -236,8 +236,7 @@ class BacktestEngine:
+                         analyst_signal=signal,
+                         market_data=packet,
+                         sentiment_score=0.5,
+-                        current_portfolio=self.portfolio,
+-                        available_balance=self.balance
++                        current_portfolio=self.portfolio
+                     )
+                     print(signal,verdict)
+                     
+diff --git a/backtesting_lms.py b/backtesting_lms.py
+index 3674ca2..6335379 100644
+--- a/backtesting_lms.py
++++ b/backtesting_lms.py
+@@ -126,7 +126,7 @@ class BacktestEngine:
+             return condition_str
+             
+         if not condition_str:
+-            return True
++            return False
+             
+         condition_str = str(condition_str)
+         condition_str = html.unescape(condition_str)
+@@ -255,17 +255,23 @@ class BacktestEngine:
+                 exit_triggered = False
+                 exit_reason = ""
+                 
+-                if row["low"] <= trade['stop_loss']:
+-                    exit_triggered, exit_reason = True, "Stop Loss"
+-                elif row["high"] >= trade['target']:
++                if row["high"] >= trade['target']:
+                     exit_triggered, exit_reason = True, "Target"
++                elif row["low"] <= trade['stop_loss']:
++                    exit_triggered, exit_reason = True, "Stop Loss"
+                 elif self._evaluate_condition(trade['exit_condition'], locals_dict):
+                     exit_triggered, exit_reason = True, "Dynamic Condition"
+                     
+                 if exit_triggered:
+-                    pnl = ((price - trade['entry_price']) / trade['entry_price']) * trade['position_size']
++                    if exit_reason == "Stop Loss":
++                        exit_price = trade['stop_loss']
++                    elif exit_reason == "Target":
++                        exit_price = trade['target']
++                    elif exit_reason == "Dynamic Condition":
++                        exit_price = price
++                    pnl = ((exit_price - trade['entry_price']) / trade['entry_price']) * trade['position_size']
+                     self.balance += trade['position_size'] + pnl
+-                    trade['exit_price'] = price
++                    trade['exit_price'] = exit_price
+                     trade['exit_time'] = timestamp
+                     trade['exit_reason'] = exit_reason
+                     trade['pnl'] = pnl
+@@ -294,8 +300,7 @@ class BacktestEngine:
+                         analyst_signal=signal,
+                         market_data=packet,
+                         sentiment_score=0.5,
+-                        current_portfolio=self.portfolio,
+-                        available_balance=self.balance
++                        current_portfolio=self.portfolio
+                     )
+                     print(signal,verdict)
+                     
+@@ -316,7 +321,7 @@ class BacktestEngine:
+             # print("4 step")
+             if verdict.signal == "BUY":
+                 # We only take ONE position at a time for simplicity in this backtest
+-                if len(self.portfolio) == 0:
++                if len(self.portfolio) >= 0:
+                     pos_size = verdict.position_size
+                     if pos_size > self.balance:
+                         pos_size = self.balance # Constrain to balance
+diff --git a/backtesting_nvidia.py b/backtesting_nvidia.py
+new file mode 100644
+index 0000000..50b6cc5
+--- /dev/null
++++ b/backtesting_nvidia.py
+@@ -0,0 +1,479 @@
++import os
++import sys
++import ast
++import json
++import time
++import argparse
++import requests
++import pandas as pd
++import numpy as np
++from datetime import datetime, timezone, timedelta
++import plotly.graph_objects as go
++from plotly.subplots import make_subplots
++import html
++
++# Ensure imports work from src
++project_root = os.path.dirname(os.path.abspath(__file__))
++sys.path.insert(0, project_root)
++
++from src.core.knowledge_base_nvidia import TradingKnowledgeBase
++from src.agents.analyst_nvidia import AnalystAgent
++from src.tools.indicators import MarketDataProcessor
++from src.agents.risk_manager import RiskManagerAgent
++from src.schema.models import AnalystSignal
++from src.agents.risk_manager import RiskAssessment
++
++CACHE_FILE = os.path.join(project_root, "tests", "llm_cache_nvidia.json")
++os.makedirs(os.path.join(project_root, "tests", "logs"), exist_ok=True)
++
++class BacktestEngine:
++    def __init__(self, initial_balance=10000):
++        self.initial_balance = initial_balance
++        self.balance = initial_balance
++        self.portfolio = [] # Active trades
++        self.trade_history = [] # Closed trades
++        self.equity_curve = [] # Track balance over time
++        
++        self.kb = TradingKnowledgeBase()
++        self.analyst = AnalystAgent(knowledge_base=self.kb)
++        self.risk_mgr = RiskManagerAgent(total_equity=initial_balance)
++        self.cache = self._load_cache()
++        log_ts = datetime.now().strftime('%Y%m%d_%H%M%S')
++        self.log_file = os.path.join(project_root, "tests", "logs", f"backtest_{log_ts}.txt")
++        self.trade_log_file = os.path.join(project_root, "tests", "logs", f"backtest_{log_ts}_trade.txt")
++        
++        # Initialize log files
++        start_header = f"=== BACKTEST START: {datetime.now(timezone.utc).isoformat()} ===\n"
++        with open(self.log_file, "w") as f:
++            f.write(start_header)
++        with open(self.trade_log_file, "w") as f:
++            f.write(start_header)
++        
++    def _load_cache(self):
++        if os.path.exists(CACHE_FILE):
++            with open(CACHE_FILE, "r") as f:
++                return json.load(f)
++        return {}
++        
++    def _save_cache(self):
++        with open(CACHE_FILE, "w") as f:
++            json.dump(self.cache, f, indent=2)
++
++    def _log_step(self, timestamp, price, signal, verdict):
++        realized_pnl = sum(t['pnl'] for t in self.trade_history)
++        
++        unrealized_pnl = 0
++        for trade in self.portfolio:
++            unrealized_pnl += ((price - trade['entry_price']) / trade['entry_price']) * trade['position_size']
++            
++        with open(self.log_file, "a") as f:
++            f.write(f"\n[{timestamp}] Price: ${price:.2f} | Balance: ${self.balance:.2f}\n")
++            f.write(f"Realized PnL: ${realized_pnl:.2f} | Unrealized PnL: ${unrealized_pnl:.2f}\n")
++            if signal:
++                f.write(f"Analyst Signal: {signal.signal} | Reasoning: {signal.reasoning}\n")
++            if verdict:
++                f.write(f"Risk Verdict| Size: ${verdict.position_size if hasattr(verdict, 'position_size') else 0:.2f}\n")
++                f.write(f"Risk audit summary: {verdict.audit_summary}\n")
++            f.write("-" * 50 + "\n")
++
++    def _log_trade(self, action: str, trade: dict, current_price: float = None):
++        """Log detailed trade execution info to the log file."""
++        with open(self.trade_log_file, "a") as f:
++            f.write("\n" + "=" * 60 + "\n")
++            if action == "ENTRY":
++                f.write(f">>> TRADE OPENED [{trade.get('asset_name', 'N/A')}]\n")
++                f.write(f"    Time:          {trade['entry_time']}\n")
++                f.write(f"    Direction:     BUY\n")
++                f.write(f"    Entry Price:   ${trade['entry_price']:.2f}\n")
++                f.write(f"    Position Size: ${trade['position_size']:.2f}\n")
++                f.write(f"    Target:        ${trade['target']:.2f}\n")
++                f.write(f"    Stop Loss:     ${trade['stop_loss']:.2f}\n")
++                risk_amt = ((trade['entry_price'] - trade['stop_loss']) / trade['entry_price']) * trade['position_size']
++                reward_amt = ((trade['target'] - trade['entry_price']) / trade['entry_price']) * trade['position_size']
++                rr_ratio = reward_amt / risk_amt if risk_amt > 0 else float('inf')
++                f.write(f"    Risk ($):      ${risk_amt:.2f}\n")
++                f.write(f"    Reward ($):    ${reward_amt:.2f}\n")
++                f.write(f"    R:R Ratio:     {rr_ratio:.2f}\n")
++                f.write(f"    Entry Cond:    {trade.get('entry_condition', 'N/A')}\n")
++                f.write(f"    Exit Cond:     {trade.get('exit_condition', 'N/A')}\n")
++                f.write(f"    Balance After: ${self.balance:.2f}\n")
++            elif action == "EXIT":
++                f.write(f"<<< TRADE CLOSED [{trade.get('asset_name', 'N/A')}]\n")
++                f.write(f"    Entry Time:    {trade['entry_time']}\n")
++                f.write(f"    Exit Time:     {trade['exit_time']}\n")
++                f.write(f"    Entry Price:   ${trade['entry_price']:.2f}\n")
++                f.write(f"    Exit Price:    ${trade['exit_price']:.2f}\n")
++                f.write(f"    Position Size: ${trade['position_size']:.2f}\n")
++                f.write(f"    Target:        ${trade['target']:.2f}\n")
++                f.write(f"    Stop Loss:     ${trade['stop_loss']:.2f}\n")
++                pnl = trade['pnl']
++                pnl_pct = (pnl / trade['position_size']) * 100 if trade['position_size'] > 0 else 0
++                result_emoji = "✅" if pnl > 0 else "❌"
++                f.write(f"    PnL:           ${pnl:.2f} ({pnl_pct:+.2f}%) {result_emoji}\n")
++                f.write(f"    Exit Reason:   {trade['exit_reason']}\n")
++                f.write(f"    Balance After: ${self.balance:.2f}\n")
++            f.write("=" * 60 + "\n")
++
++
++
++    def _evaluate_condition(self, condition_str: str, locals_dict: dict) -> bool:
++        """Evaluates a simple comparison condition string safely using AST parsing.
++        
++        Supports expressions like 'RSI < 70', 'price > bb_lower * 1.01 and rsi < 30',
++        using only variables present in locals_dict.
++        """
++        if isinstance(condition_str, bool):
++            return condition_str
++            
++        if not condition_str:
++            return False
++            
++        condition_str = str(condition_str)
++        condition_str = html.unescape(condition_str)
++        
++        if condition_str.lower() in ("true", "none", "n/a"):
++            return True
++        if condition_str.lower() in ("false", "hold"):
++            return False
++
++        try:
++            tree = ast.parse(condition_str, mode='eval')
++            result = self._safe_eval_node(tree.body, locals_dict)
++            return bool(result)
++        except Exception as e:
++            print(f"Error evaluating condition '{condition_str}': {e}")
++            return False
++
++    def _safe_eval_node(self, node: ast.AST, variables: dict):
++        """Recursively evaluate an AST node, allowing only safe operations."""
++        # Numeric / string / boolean constants
++        if isinstance(node, ast.Constant):
++            if isinstance(node.value, (int, float, bool, str)):
++                return node.value
++            raise ValueError(f"Disallowed constant type: {type(node.value)}")
++
++        # Variable lookup
++        if isinstance(node, ast.Name):
++            var_id = node.id.lower()
++            if var_id in variables:
++                return variables[var_id]
++            if node.id in variables:
++                return variables[node.id]
++            raise NameError(f"Unknown variable: {node.id}")
++
++        # Unary operators: -x, +x, not x
++        if isinstance(node, ast.UnaryOp):
++            operand = self._safe_eval_node(node.operand, variables)
++            if isinstance(node.op, ast.USub):
++                return -operand
++            if isinstance(node.op, ast.UAdd):
++                return +operand
++            if isinstance(node.op, ast.Not):
++                return not operand
++            raise ValueError(f"Disallowed unary op: {type(node.op).__name__}")
++
++        # Binary arithmetic: +, -, *, /, //
++        if isinstance(node, ast.BinOp):
++            left = self._safe_eval_node(node.left, variables)
++            right = self._safe_eval_node(node.right, variables)
++            ops = {
++                ast.Add: lambda a, b: a + b,
++                ast.Sub: lambda a, b: a - b,
++                ast.Mult: lambda a, b: a * b,
++                ast.Div: lambda a, b: a / b,
++                ast.FloorDiv: lambda a, b: a // b,
++            }
++            op_func = ops.get(type(node.op))
++            if op_func is None:
++                raise ValueError(f"Disallowed binary op: {type(node.op).__name__}")
++            return op_func(left, right)
++
++        # Comparisons: <, >, <=, >=, ==, !=
++        if isinstance(node, ast.Compare):
++            left = self._safe_eval_node(node.left, variables)
++            cmp_ops = {
++                ast.Lt: lambda a, b: a < b,
++                ast.LtE: lambda a, b: a <= b,
++                ast.Gt: lambda a, b: a > b,
++                ast.GtE: lambda a, b: a >= b,
++                ast.Eq: lambda a, b: a == b,
++                ast.NotEq: lambda a, b: a != b,
++            }
++            # Chained comparisons: a < b < c  →  a < b and b < c
++            for op, comparator in zip(node.ops, node.comparators):
++                right = self._safe_eval_node(comparator, variables)
++                op_func = cmp_ops.get(type(op))
++                if op_func is None:
++                    raise ValueError(f"Disallowed comparison: {type(op).__name__}")
++                if not op_func(left, right):
++                    return False
++                left = right
++            return True
++
++        # Boolean operators: and, or
++        if isinstance(node, ast.BoolOp):
++            if isinstance(node.op, ast.And):
++                return all(self._safe_eval_node(v, variables) for v in node.values)
++            if isinstance(node.op, ast.Or):
++                return any(self._safe_eval_node(v, variables) for v in node.values)
++            raise ValueError(f"Disallowed bool op: {type(node.op).__name__}")
++
++        raise ValueError(f"Disallowed AST node: {type(node).__name__}")
++
++    def run(self, df: pd.DataFrame, limit: int = None):
++        print("\n--- Starting Backtest Simulation ---")
++        window = 200
++        total_steps = len(df) - window
++        print(window,total_steps)
++        if limit:
++            total_steps = min(total_steps, limit)
++            
++        for i in range(window, window + total_steps):
++            row = df.iloc[i]
++            timestamp = row['open_time'].isoformat()
++            price = row['close']
++            
++            # Record equity
++            self.equity_curve.append({
++                "timestamp": timestamp,
++                "balance": self.balance,
++                "price": price
++            })
++            
++            print(f"\nStep {i-window+1}/{total_steps} | {timestamp} | Price: ${price:.2f} | Balance: ${self.balance:.2f} | ")
++            
++            # Build execution namespace for evaluating conditions
++            locals_dict = {col: row[col] for col in df.columns}
++            locals_dict['price'] = price
++            
++            # Make case-insensitive by adding uppercase versions of all keys
++            locals_dict.update({k.upper(): v for k, v in locals_dict.items() if isinstance(k, str)})
++            
++            # 1. Check Exits for Open Trades
++            # print("1 step")
++            for trade in self.portfolio[:]:
++                exit_triggered = False
++                exit_reason = ""
++                
++                if row["high"] >= trade['target']:
++                    exit_triggered, exit_reason = True, "Target"
++                elif row["low"] <= trade['stop_loss']:
++                    exit_triggered, exit_reason = True, "Stop Loss"
++                elif self._evaluate_condition(trade['exit_condition'], locals_dict):
++                    exit_triggered, exit_reason = True, "Dynamic Condition"
++                    
++                if exit_triggered:
++                    if exit_reason == "Stop Loss":
++                        exit_price = trade['stop_loss']
++                    elif exit_reason == "Target":
++                        exit_price = trade['target']
++                    elif exit_reason == "Dynamic Condition":
++                        exit_price = price
++                    pnl = ((exit_price - trade['entry_price']) / trade['entry_price']) * trade['position_size']
++                    self.balance += trade['position_size'] + pnl
++                    trade['exit_price'] = exit_price
++                    trade['exit_time'] = timestamp
++                    trade['exit_reason'] = exit_reason
++                    trade['pnl'] = pnl
++                    self.trade_history.append(trade)
++                    self.portfolio.remove(trade)
++                    self._log_trade("EXIT", trade)
++                    print(f"  -> EXIT [{exit_reason}]: PnL ${pnl:.2f} | Balance: ${self.balance:.2f}")
++            
++            # 2. Get Context Packet
++            # print("2 step")
++            packet = MarketDataProcessor.get_context_packet(df, i, window=window)
++            if not packet: continue
++            packet['asset_name'] = "BTC/USDT"
++            
++            # 3. Cache / Agent Cycle
++            print("3 step")
++            if timestamp in self.cache:
++                print("  -> Using Cached LLM Output")
++                cache_data = self.cache[timestamp]
++                signal = AnalystSignal.model_validate(cache_data['signal'])
++                verdict = RiskAssessment.model_validate(cache_data['risk'])
++            else:
++                try:
++                    signal = self.analyst.analyze(market_data=packet, sentiment_score=0.5)
++                    verdict = self.risk_mgr.evaluate(
++                        analyst_signal=signal,
++                        market_data=packet,
++                        sentiment_score=0.5,
++                        current_portfolio=self.portfolio
++                    )
++                    print(signal,verdict)
++                    
++                    self.cache[timestamp] = {
++                        "signal": signal.model_dump(),
++                        "risk": verdict.model_dump()
++                    }
++                    self._save_cache()
++                    
++                except Exception as e:
++                    print(f"  -> API Error at {timestamp}: {e}")
++                    # Save progress and sleep
++                    self._save_cache()
++                    time.sleep(10)
++                    continue
++
++            # 4. Entry Execution
++            # print("4 step")
++            if verdict.signal == "BUY":
++                # We only take ONE position at a time for simplicity in this backtest
++                if len(self.portfolio) >= 0:
++                    pos_size = verdict.position_size
++                    if pos_size > self.balance:
++                        pos_size = self.balance # Constrain to balance
++                        
++                    if pos_size > 0:
++                        self.balance -= pos_size
++                        trade = {
++                            "asset_name": verdict.asset_name,
++                            "entry_time": timestamp,
++                            "entry_price": price,
++                            "position_size": pos_size,
++                            "target": verdict.target,
++                            "stop_loss": verdict.stop_loss,
++                            "entry_condition": signal.entry_condition,
++                            "exit_condition": signal.exit_condition
++                        }
++                        self.portfolio.append(trade)
++                        self._log_trade("ENTRY", trade)
++                        print(f"  -> ENTRY [BUY]: Size ${pos_size:.2f} @ ${price:.2f}")
++
++            # 5. Step Logging
++            if 'signal' in locals() and 'verdict' in locals():
++                self._log_step(timestamp, price, signal, verdict)
++            else:
++                self._log_step(timestamp, price, None, None)
++
++        # Close all open positions at end of test to realize PnL
++        # print("ur mum")
++        if self.portfolio:
++            final_price = df.iloc[window + total_steps - 1]['close']
++            final_time = df.iloc[window + total_steps - 1]['open_time'].isoformat()
++            for trade in self.portfolio[:]:
++                pnl = ((final_price - trade['entry_price']) / trade['entry_price']) * trade['position_size']
++                self.balance += trade['position_size'] + pnl
++                trade['exit_price'] = final_price
++                trade['exit_time'] = final_time
++                trade['exit_reason'] = "End of Backtest"
++                trade['pnl'] = pnl
++                self.trade_history.append(trade)
++                self._log_trade("EXIT", trade)
++            self.portfolio.clear()
++
++        # Final record
++        self.equity_curve.append({
++            "timestamp": df.iloc[window + total_steps - 1]['open_time'].isoformat(),
++            "balance": self.balance,
++            "price": df.iloc[window + total_steps - 1]['close']
++        })
++
++    def print_metrics(self):
++        roi = ((self.balance - self.initial_balance) / self.initial_balance) * 100
++        wins = [t for t in self.trade_history if t['pnl'] > 0]
++        losses = [t for t in self.trade_history if t['pnl'] <= 0]
++        win_rate = (len(wins) / len(self.trade_history) * 100) if self.trade_history else 0
++        
++        gross_profit = sum(t['pnl'] for t in wins)
++        gross_loss = abs(sum(t['pnl'] for t in losses))
++        profit_factor = (gross_profit / gross_loss) if gross_loss > 0 else float('inf')
++
++        print("\n" + "="*50)
++        print("📊 BACKTEST FINAL REPORT")
++        print("="*50)
++        print(f"Initial Balance:  ${self.initial_balance:,.2f}")
++        print(f"Final Balance:    ${self.balance:,.2f}")
++        print(f"Net Profit:       ${(self.balance - self.initial_balance):,.2f}")
++        print(f"Total ROI:        {roi:.2f}%")
++        print(f"Total Trades:     {len(self.trade_history)}")
++        print(f"Win Rate:         {win_rate:.2f}% ({len(wins)}W / {len(losses)}L)")
++        print(f"Profit Factor:    {profit_factor:.2f}")
++        print("="*50)
++
++        # Save metrics to table
++        metrics_df = pd.DataFrame([{
++            "Initial Balance": self.initial_balance,
++            "Final Balance": self.balance,
++            "Net Profit": self.balance - self.initial_balance,
++            "Total ROI %": roi,
++            "Total Trades": len(self.trade_history),
++            "Win Rate %": win_rate,
++            "Profit Factor": profit_factor
++        }])
++        metrics_df.to_csv(os.path.join(project_root, "tests", "metrics.csv"), index=False)
++        print("Metrics saved to tests/metrics.csv")
++
++    def generate_graphs(self, df: pd.DataFrame):
++        print("Generating graphs...")
++        
++        # 1. Equity Curve
++        eq_df = pd.DataFrame(self.equity_curve)
++        fig1 = go.Figure()
++        fig1.add_trace(go.Scatter(x=eq_df['timestamp'], y=eq_df['balance'], mode='lines', name='Balance ($)', line=dict(color='#c2ef4e', width=2)))
++        fig1.update_layout(title="Equity Curve", template="plotly_dark", plot_bgcolor="#1f1633", paper_bgcolor="#150f23")
++        fig1.write_html(os.path.join(project_root, "tests", "equity_curve.html"))
++        fig1.write_image(os.path.join(project_root, "tests", "equity_curve.png"))
++
++        # 2. Trade Chart (Candlestick + Entries/Exits)
++        # We plot the entire range that was tested
++        start_ts = eq_df['timestamp'].iloc[0]
++        end_ts = eq_df['timestamp'].iloc[-1]
++        mask = (df['open_time'] >= start_ts) & (df['open_time'] <= end_ts)
++        chart_df = df.loc[mask].copy()
++        
++        fig2 = go.Figure(data=[go.Candlestick(x=chart_df['open_time'],
++                open=chart_df['open'], high=chart_df['high'],
++                low=chart_df['low'], close=chart_df['close'],
++                name='Price')])
++
++        # Add trades
++        for trade in self.trade_history:
++            # Entry (Green Triangle Up)
++            fig2.add_trace(go.Scatter(
++                x=[trade['entry_time']], y=[trade['entry_price']],
++                mode='markers', marker=dict(symbol='triangle-up', size=12, color='#0ecb81'),
++                name=f"BUY", hovertext=f"Size: ${trade['position_size']:.2f}"
++            ))
++            # Exit (Red Triangle Down or Circle depending on reason)
++            color = '#f6465d' if trade['pnl'] < 0 else '#0ecb81'
++            fig2.add_trace(go.Scatter(
++                x=[trade['exit_time']], y=[trade['exit_price']],
++                mode='markers', marker=dict(symbol='triangle-down', size=12, color=color),
++                name=f"EXIT ({trade['exit_reason']})", hovertext=f"PnL: ${trade['pnl']:.2f}"
++            ))
++            
++        fig2.update_layout(title="Trade Executions", template="plotly_dark", xaxis_rangeslider_visible=False, plot_bgcolor="#1f1633", paper_bgcolor="#150f23")
++        fig2.write_html(os.path.join(project_root, "tests", "trade_chart.html"))
++        fig2.write_image(os.path.join(project_root, "tests", "trade_chart.png"))
++        print(f"Graphs saved to tests/equity_curve.html/png and tests/trade_chart.html/png")
++
++
++if __name__ == "__main__":
++    parser = argparse.ArgumentParser(description="Run Historical Backtest")
++    parser.add_argument("--limit", type=int, default=None, help="Number of candles to process. Omit to run full dataset.")
++    parser.add_argument("--data", type=str, default="tests/BTCUSDT_4h_historical.csv", help="Path to historical data CSV")
++    args = parser.parse_args()
++
++    engine = BacktestEngine(initial_balance=100000)
++    
++    # 1. Fetch & prep data
++    csv_path = os.path.join(project_root, args.data)
++    if not os.path.exists(csv_path):
++        print(f"Error: {csv_path} does not exist. Please run 'python scripts/download_historical_data.py' first.")
++        sys.exit(1)
++        
++    print(f"Loading data from {csv_path}...")
++    df = pd.read_csv(csv_path)
++    df['open_time'] = pd.to_datetime(df['open_time'], format='ISO8601', utc=True)
++    df['close_time'] = pd.to_datetime(df['close_time'], format='ISO8601', utc=True)
++    
++    # 2. Run simulation
++    # print(df.head(10))
++    engine.run(df, limit=args.limit)
++    
++    # 3. Results
++    engine.print_metrics()
++    engine.generate_graphs(df)
+diff --git a/src/agents/analyst_lms.py b/src/agents/analyst_lms.py
+index 12d690e..2239504 100644
+--- a/src/agents/analyst_lms.py
++++ b/src/agents/analyst_lms.py
+@@ -1,9 +1,12 @@
+ import json
+-import re
+ from datetime import datetime, timezone, timedelta
+ from dotenv import dotenv_values
+ from google import genai
+ from google.genai import types
++import pandas as pd
++import numpy as np
++import requests
++import re
+ from langchain_openai import ChatOpenAI
+ from src.schema.models import AnalystSignal
+ from src.core.knowledge_base_lms import TradingKnowledgeBase
+@@ -294,8 +297,8 @@ class AnalystAgent:
+         bands   = market_data.get('bands', {})
+         bands40 = market_data.get('bands40', {})
+         adx     = market_data.get('adx', {})
+-        vol     = market_data.get('volatility', {})
+-
++        vol     = market_data.get('volatility', {})     
++        
+         # ── Prompts ───────────────────────────────────────────────────────────
+         system_msg = """<role>You are an Institutional Grade Quantitative Analyst.</role>
+ 
+@@ -311,35 +314,22 @@ State the regime explicitly: Trending, Volatile, or Sideways.
+ <step n="2" name="STRATEGY_SELECTION">
+ Review each strategy candidate from the strategy_candidates section.
+ For each one ask:
+-  a) REGIME CHECK — the strategy's regime field has three sub-fields:
+-       - primary     : the regime this strategy is designed for
+-       - also_valid  : additional regimes where it is still valid
+-       - forbidden   : regimes where it must NEVER be used
+-     The strategy is eligible if the current regime matches primary OR appears in also_valid.
+-     If the current regime appears in forbidden, DISCARD the strategy immediately.
++  a) Does its regime tag match the current regime?
+   b) Does the current market satisfy its entry_primary condition?
+-  c) CONFLICT CHECK — evaluate each expression in conflicts_structured against the current
+-     packet values (e.g. "atr_expanding == false" means check the atr_expanding field directly).
+-     If ANY expression evaluates to True for the current market, DISCARD the strategy.
++  c) Does anything in its conflicts_with list describe the current market? If yes, DISCARD it.
+ Select the single best-fit strategy. If none fit cleanly, write "fallback".
+ </step>
+ 
+ <step n="3" name="CONFLUENCE_CHECK">
+ List every entry_confirmation condition from the chosen strategy.
+-For each condition:
+-  - If entry_confirmation_structured is not null for that condition, evaluate the structured
+-    expression directly against the current packet values and state YES or NO with the value cited.
+-  - If entry_confirmation_structured is null for that condition, evaluate the prose description
+-    using the packet data as best you can and state YES or NO with your reasoning.
+-Count satisfied conditions vs total. Be precise — cite actual numeric values from the packet.
++For each condition state explicitly: does the current packet data satisfy it? YES or NO.
++Count satisfied conditions vs total. Be precise — cite actual values from the packet.
+ </step>
+ 
+ <step n="4" name="SIGNAL_DECISION">
+ Decision rules:
+ - All or most confirmations met → consider BUY
+ - Fewer than half met → HOLD
+-- Any hard conflict present → HOLD
+-- Sideways regime → HOLD unless confluence is unambiguous and strong
+ </step>
+ 
+ <step n="5" name="SYNTHESIZE_CONDITIONS">
+@@ -351,8 +341,7 @@ You MUST use ONLY the following variable names (these are the exact column names
+ price, open, high, low, close, volume,
+ rsi, rsi5, ema9, ema20, ema50, ema200,
+ bb_upper, bb_lower, bb_mid, bb40_upper, bb40_lower,
+-adx, atr, atr_avg_5, atr_expanding,
+-high_10, low_10, high_20, low_20, high_50, low_50, high_55, low_55
++adx, atr, atr_avg_5, atr_expanding
+ </available_variables>
+ 
+ To reference the previous candle's value, the backtester does NOT have _prev columns.
+@@ -384,11 +373,12 @@ Do NOT include asset_name or valid_till — they are injected automatically.
+ </instructions>
+ 
+ <rules>
++- Output valid JSON only. No markdown fences. No commentary outside the JSON.
+ - confidence > 0.8 only if ALL entry_confirmation conditions are met
+ - confidence > 0.6 only if the majority of entry_confirmation conditions are met
+ - signal must be directly derivable from internal_monologue — no contradictions
+ - Do not favour or penalise any strategy based on its name — evaluate purely on conditions
+-- Output valid JSON only. No markdown fences. No commentary outside the JSON.
++- Ignore short selling trades.
+ </rules>"""
+ 
+         user_msg = f"""<market_data asset="{asset_name}" valid_till="{valid_till}">
+@@ -506,7 +496,6 @@ Do NOT include asset_name or valid_till — they are injected automatically.
+ </market_data>
+ 
+ Follow Steps 1 through 6 from your instructions and produce the JSON output."""
+-
+         # ── LLM call ──────────────────────────────────────────────────────────
+         try:
+             # temporarily disabled for testing purposes
+@@ -524,12 +513,25 @@ Follow Steps 1 through 6 from your instructions and produce the JSON output."""
+         except Exception as e:
+             print(f"Gemini API failed: {e}. Falling back to local LM Studio (gemma4:e2b)...")
+             try:
++                
++                print(system_msg,file=open('system.txt','a'),)
++                print(user_msg,file=open('user.txt','a'))
+                 response = self.lmstudio_llm.invoke([("system", system_msg), ("human", user_msg)])
++                
++                try:
++                    usage = getattr(response, "usage_metadata", None) or response.response_metadata.get("token_usage", {})
++                    prompt_tokens = usage.get('input_tokens', usage.get('prompt_tokens', '?'))
++                    completion_tokens = usage.get('output_tokens', usage.get('completion_tokens', '?'))
++                    total_tokens = usage.get('total_tokens', '?')
++                    print(f"[LM Studio Usage] Prompt Context: {prompt_tokens} tokens | Generated: {completion_tokens} tokens | Total: {total_tokens} tokens")
++                except Exception as e_usage:
++                    print(f"[LM Studio Usage] Could not parse usage metadata: {e_usage}")
++
+                 clean_content = self._clean_json_response(response.content)
+                 parsed = json.loads(clean_content)
+             except Exception as lms_e:
+                 print(f"LM Studio fallback also failed: {lms_e}")
+-                raise e  # intentionally preserved per request
++                raise e # Raise the original exception if fallback fails
+ 
+         try:
+             parsed["asset_name"] = asset_name
+@@ -546,4 +548,4 @@ Follow Steps 1 through 6 from your instructions and produce the JSON output."""
+         return content.strip()
+ 
+ 
+-# ══════════════════════════════════════════════════════════════════════════════
+\ No newline at end of file
++# ══════════════════════════════════════════════════════════════════════════════
+diff --git a/src/agents/analyst_nvidia.py b/src/agents/analyst_nvidia.py
+new file mode 100644
+index 0000000..83a5dfc
+--- /dev/null
++++ b/src/agents/analyst_nvidia.py
+@@ -0,0 +1,554 @@
++import json
++from datetime import datetime, timezone, timedelta
++from dotenv import dotenv_values
++from google import genai
++from google.genai import types
++import pandas as pd
++import numpy as np
++import requests
++import re
++from langchain_openai import ChatOpenAI
++from src.schema.models import AnalystSignal
++from src.core.knowledge_base_nvidia import TradingKnowledgeBase
++
++
++class AnalystAgent:
++    def __init__(self, knowledge_base: TradingKnowledgeBase, timeframe_hours: int = 4):
++        self.kb = knowledge_base
++        self.timeframe_hours = timeframe_hours
++
++        config = dotenv_values(".env")
++        self.client = genai.Client(api_key=config["gemini_key"])
++        self.model_name = "gemini-2.5-flash"
++        from langchain_openai import ChatOpenAI
++        self.nvidia_llm = ChatOpenAI(
++            base_url="https://integrate.api.nvidia.com/v1",
++            api_key="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",
++            model="deepseek-ai/deepseek-v4-pro",
++            temperature=1,
++            top_p=0.95,
++            max_tokens=8192,
++        )
++
++    def _detect_regime(self, market_data: dict) -> str:
++        structure = market_data['trends']['market_structure'].lower()
++        atr       = market_data['volatility']['atr']
++        price     = market_data['snapshot']['close']
++        vol_spike = market_data['volume']['is_spike']
++        atr_pct   = atr / price if price > 0 else 0
++
++        if "sideways" in structure or "ranging" in structure:
++            if atr_pct > 0.02 or vol_spike:
++                return "Volatile"
++            return "Sideways"
++        elif "trend" in structure or "bull" in structure or "bear" in structure:
++            if vol_spike:
++                return "Volatile"
++            return "Trending"
++        return None
++
++    def _build_rsi_narrative(self, market_data: dict) -> tuple:
++        rsi_current = market_data['rsi']['current']
++        rsi_prev    = market_data['rsi'].get('prev', None)
++        rsi_avg     = market_data['rsi']['avg_50']
++        rsi_trend   = market_data['rsi']['trend']
++
++        if rsi_prev is not None and rsi_prev < 30 and rsi_current > 30:
++            narrative = (
++                f"*** RSI(14) was oversold last candle ({rsi_prev}) and has now exited "
++                f"the oversold zone ({rsi_current}). Oversold EXIT confirmed. ***"
++            )
++        elif rsi_prev is not None and rsi_prev > 70 and rsi_current < 70:
++            narrative = (
++                f"*** RSI(14) was overbought last candle ({rsi_prev}) and has now exited "
++                f"the overbought zone ({rsi_current}). Overbought EXIT confirmed. ***"
++            )
++        else:
++            narrative = ""
++
++        return rsi_current, rsi_prev, rsi_avg, rsi_trend, narrative
++
++    def _build_rsi5_narrative(self, market_data: dict) -> tuple:
++        rsi5_current = market_data['rsi5']['current']
++        rsi5_prev    = market_data['rsi5']['prev']
++        rsi5_trend   = market_data['rsi5']['trend']
++
++        if rsi5_prev < 30 and rsi5_current > 30:
++            narrative = (
++                f"*** RSI(5) was oversold last candle ({rsi5_prev}) and has now exited "
++                f"the oversold zone ({rsi5_current}). Hyper-sensitive oversold EXIT confirmed. ***"
++            )
++        elif rsi5_prev > 70 and rsi5_current < 70:
++            narrative = (
++                f"*** RSI(5) was overbought last candle ({rsi5_prev}) and has now exited "
++                f"the overbought zone ({rsi5_current}). Hyper-sensitive overbought EXIT confirmed. ***"
++            )
++        else:
++            narrative = ""
++
++        return rsi5_current, rsi5_prev, rsi5_trend, narrative
++
++    def _build_bb_narrative(self, market_data: dict) -> str:
++        close    = market_data['snapshot']['close']
++        bb_lower = market_data['bands']['lower']
++        bb_upper = market_data['bands']['upper']
++        bb_mid   = market_data['bands']['mid']
++
++        if close <= bb_lower * 1.01:
++            return (
++                f"*** Price ({close}) is at or near BB(20) Lower ({bb_lower}) — "
++                f"potential bounce zone. Band breach/touch confirmed. ***"
++            )
++        elif close >= bb_upper * 0.99:
++            return (
++                f"*** Price ({close}) is at or near BB(20) Upper ({bb_upper}) — "
++                f"potential rejection zone. Band breach/touch confirmed. ***"
++            )
++        else:
++            return (
++                f"Price ({close}) is inside BB(20) bands "
++                f"(L: {bb_lower} | Mid: {bb_mid} | U: {bb_upper})."
++            )
++
++    def _build_bb40_narrative(self, market_data: dict) -> str:
++        close      = market_data['snapshot']['close']
++        bb40_lower = market_data['bands40']['lower']
++        bb40_upper = market_data['bands40']['upper']
++
++        if close <= bb40_lower * 1.01:
++            return (
++                f"*** Price ({close}) is at or near BB(40) Lower ({bb40_lower}) — "
++                f"wide-band statistical extreme confirmed. ***"
++            )
++        elif close >= bb40_upper * 0.99:
++            return (
++                f"*** Price ({close}) is at or near BB(40) Upper ({bb40_upper}) — "
++                f"wide-band statistical extreme confirmed. ***"
++            )
++        else:
++            return (
++                f"Price ({close}) is inside BB(40) bands "
++                f"(L: {bb40_lower} | U: {bb40_upper})."
++            )
++
++    def _build_query(self, market_data: dict, regime_str: str) -> str:
++        price        = market_data['snapshot']['close']
++
++        # ── 1. Regime phrase ──────────────────────────────────────────────────
++        regime_phrases = {
++            "trending": "macro trend extension with directional momentum and sustained institutional capital flow",
++            "sideways": "range-bound oscillation with no directional momentum predictably cycling between statistical boundaries",
++            "volatile": "kinetic energy release from compression with explosive liquidity cascade and elevated participation",
++        }
++        regime_phrase = regime_phrases.get(
++            regime_str,
++            "indeterminate market structure with mixed momentum signals"
++        )
++
++        # ── 2. Momentum phrase ────────────────────────────────────────────────
++        rsi_current  = market_data['rsi']['current']
++        rsi5_current = market_data['rsi5']['current']
++        rsi5_prev    = market_data['rsi5']['prev']
++        bb_pos       = market_data['bands']['position_label'].lower()
++        bb40_pos     = market_data['bands40']['position_label'].lower()
++
++        if rsi_current > 70:
++            rsi14_phrase = "overbought momentum exhaustion approaching reversal threshold"
++        elif rsi_current < 30:
++            rsi14_phrase = "oversold fear-driven retail capitulation at statistical extreme"
++        else:
++            rsi14_phrase = "neutral momentum with no extreme oscillator reading"
++
++        if rsi5_prev < 30 and rsi5_current > 30:
++            rsi5_phrase = "hyper-sensitive oscillator exiting oversold zone confirming snap-back momentum"
++        elif rsi5_prev > 70 and rsi5_current < 70:
++            rsi5_phrase = "hyper-sensitive oscillator exiting overbought zone confirming exhaustion reversal"
++        elif rsi5_current < 30:
++            rsi5_phrase = "hyper-sensitive oscillator deep in oversold extreme"
++        elif rsi5_current > 70:
++            rsi5_phrase = "hyper-sensitive oscillator deep in overbought extreme"
++        else:
++            rsi5_phrase = ""
++
++        bb20_phrases = {
++            "below lower band": "price at maximum negative standard deviation volatility overextension bounce zone",
++            "above upper band": "price at maximum positive standard deviation volatility overextension rejection zone",
++            "upper half":       "price consolidating in upper bollinger half above mean",
++            "lower half":       "price consolidating in lower bollinger half below mean",
++        }
++        bb40_phrases = {
++            "below lower band": "price breaching wide-band lower boundary confirming statistical extreme in non-trending environment",
++            "above upper band": "price breaching wide-band upper boundary confirming statistical extreme in non-trending environment",
++            "upper half":       "price in upper half of wide statistical range",
++            "lower half":       "price in lower half of wide statistical range",
++        }
++        bb20_phrase = bb20_phrases.get(bb_pos, "")
++        bb40_phrase = bb40_phrases.get(bb40_pos, "")
++
++        momentum_phrase = " ".join(filter(None, [
++            rsi14_phrase, rsi5_phrase, bb20_phrase, bb40_phrase
++        ]))
++
++        # ── 3. Volatility + volume phrase ─────────────────────────────────────
++        atr_expanding   = market_data['volatility']['atr_expanding']
++        is_spike        = market_data['volume']['is_spike']
++        is_capitulation = market_data['volume']['is_capitulation_spike']
++
++        if atr_expanding and is_capitulation:
++            vol_phrase = "ATR expansion confirmed with capitulation volume spike institutional accumulation demand zone"
++        elif atr_expanding and is_spike:
++            vol_phrase = "ATR expansion with high volume breakout surge in market participation"
++        elif atr_expanding:
++            vol_phrase = "ATR expanding increasing volatility momentum building"
++        elif is_spike:
++            vol_phrase = "volume spike with stable ATR possible absorption at structural boundary"
++        else:
++            vol_phrase = "low volatility consolidation compression ATR contraction tight range"
++
++        # ── 4. EMA state phrase ───────────────────────────────────────────────
++        ema_rel      = market_data['ema']['price_rel'].lower()
++        ema_slope    = market_data['ema']['slope'].lower()
++        converging   = market_data['ema_multi']['converging']
++        stack_order  = market_data['ema_multi']['stack_order'].lower()
++        ema200_rel   = market_data['ema200']['price_rel'].lower()
++        ema200_near  = market_data['ema200']['near_band']
++        ema200_slope = market_data['ema200']['slope'].lower()
++
++        if "above" in ema_rel and ema_slope == "increasing":
++            ema20_phrase = "price above rising moving average confirming bullish trend alignment"
++        elif "below" in ema_rel and ema_slope == "decreasing":
++            ema20_phrase = "price below declining moving average confirming bearish trend alignment"
++        elif "above" in ema_rel and ema_slope == "decreasing":
++            ema20_phrase = "price above but moving average curling downward early trend deterioration"
++        else:
++            ema20_phrase = "price below but moving average flattening potential base formation"
++
++        if converging and stack_order == "bullish":
++            ema_multi_phrase = "fast medium slow moving averages converging and re-stacking bullish synchronized algorithmic launchpad trend continuation"
++        elif converging and stack_order == "bearish":
++            ema_multi_phrase = "fast medium slow moving averages converging and re-stacking bearish synchronized algorithmic launchpad trend continuation"
++        elif converging:
++            ema_multi_phrase = "moving averages in equilibrium convergence twist consolidation fair value alignment"
++        elif stack_order == "bullish":
++            ema_multi_phrase = "moving averages fanned out in bullish order mature uptrend"
++        elif stack_order == "bearish":
++            ema_multi_phrase = "moving averages fanned out in bearish order mature downtrend"
++        else:
++            ema_multi_phrase = "moving averages mixed order choppy non-directional"
++
++        if ema200_near and ema200_slope == "increasing" and "below" in ema200_rel:
++            ema200_phrase = "price approaching upward sloping 200 moving average maximum institutional demand smart money accumulation zone"
++        elif ema200_near and ema200_slope == "increasing" and "above" in ema200_rel:
++            ema200_phrase = "price near upward sloping 200 moving average long-term fair value support"
++        elif "above" in ema200_rel and ema200_slope == "increasing":
++            ema200_phrase = "price above rising 200 moving average macro bull regime confirmed"
++        else:
++            ema200_phrase = "price below or distant from 200 moving average macro trend not confirmed"
++
++        ema_phrase = " ".join(filter(None, [
++            ema20_phrase, ema_multi_phrase, ema200_phrase
++        ]))
++
++        # ── Assemble ──────────────────────────────────────────────────────────
++        return (
++            f"{regime_phrase}. "
++            f"{momentum_phrase}. "
++            f"{vol_phrase}. "
++            f"{ema_phrase}."
++        )
++
++    def _compute_valid_till(self) -> str:
++        expiry = datetime.now(timezone.utc) + timedelta(hours=self.timeframe_hours)
++        return expiry.strftime("%Y-%m-%dT%H:%M:%SZ")
++
++    def analyze(self, market_data: dict, sentiment_score: float) -> AnalystSignal:
++        regime     = self._detect_regime(market_data)
++        valid_till = self._compute_valid_till()
++        asset_name = market_data.get("asset_name", "UNKNOWN")
++
++        # ── Derived variables ─────────────────────────────────────────────────
++        structure  = market_data['trends']['market_structure']
++        atr        = market_data['volatility']['atr']
++        price      = market_data['snapshot']['close']
++        atr_pct    = atr / price if price > 0 else 0
++        regime_str = regime.lower() if regime else "any"
++
++        # Narratives
++        rsi_current, rsi_prev, rsi_avg, rsi_trend, rsi_narrative   = self._build_rsi_narrative(market_data)
++        rsi5_current, rsi5_prev, rsi5_trend, rsi5_narrative         = self._build_rsi5_narrative(market_data)
++        bb_narrative                                                 = self._build_bb_narrative(market_data)
++        bb40_narrative                                               = self._build_bb40_narrative(market_data)
++
++        # Query
++        query = self._build_query(market_data, regime_str)
++
++        # ── KB retrieval ──────────────────────────────────────────────────────
++        strategies: list[dict] = self.kb.get_relevant_strategies(
++            query=query,
++            k=2,
++            score_threshold=0.40,
++            regime_filter=regime
++        )
++        strategy_context = json.dumps(strategies, indent=2) if strategies else None
++
++        # ── Packet field extraction ───────────────────────────────────────────
++        levels  = market_data.get('levels', {})
++        volume  = market_data.get('volume', {})
++        ema     = market_data.get('ema', {})
++        ema_m   = market_data.get('ema_multi', {})
++        ema200  = market_data.get('ema200', {})
++        bands   = market_data.get('bands', {})
++        bands40 = market_data.get('bands40', {})
++        adx     = market_data.get('adx', {})
++        vol     = market_data.get('volatility', {})     
++        
++        # ── Prompts ───────────────────────────────────────────────────────────
++        system_msg = """<role>You are an Institutional Grade Quantitative Analyst.</role>
++
++<instructions>
++Follow these steps IN ORDER before producing any output.
++
++<step n="1" name="REGIME_CHECK">
++Identify the market regime. It will be provided as a pre-computed value in the data packet.
++Verify it against market_structure, ATR/Price%, and volume spike flag.
++State the regime explicitly: Trending, Volatile, or Sideways.
++</step>
++
++<step n="2" name="STRATEGY_SELECTION">
++Review each strategy candidate from the strategy_candidates section.
++For each one ask:
++  a) Does its regime tag match the current regime?
++  b) Does the current market satisfy its entry_primary condition?
++  c) Does anything in its conflicts_with list describe the current market? If yes, DISCARD it.
++Select the single best-fit strategy. If none fit cleanly, write "fallback".
++</step>
++
++<step n="3" name="CONFLUENCE_CHECK">
++List every entry_confirmation condition from the chosen strategy.
++For each condition state explicitly: does the current packet data satisfy it? YES or NO.
++Count satisfied conditions vs total. Be precise — cite actual values from the packet.
++</step>
++
++<step n="4" name="SIGNAL_DECISION">
++Decision rules:
++- All or most confirmations met → consider BUY
++- Fewer than half met → HOLD
++</step>
++
++<step n="5" name="SYNTHESIZE_CONDITIONS">
++Write entry_condition and exit_condition as pure logical mathematical expressions.
++CRITICAL: DO NOT write conversational English, explanations, or sentences in these fields. If you cannot form a valid mathematical condition, output exactly "False" or "HOLD".
++You MUST use ONLY the following variable names (these are the exact column names available at execution time):
++
++<available_variables>
++price, open, high, low, close, volume,
++rsi, rsi5, ema9, ema20, ema50, ema200,
++bb_upper, bb_lower, bb_mid, bb40_upper, bb40_lower,
++adx, atr, atr_avg_5, atr_expanding
++</available_variables>
++
++To reference the previous candle's value, the backtester does NOT have _prev columns.
++So use comparisons against thresholds only (e.g. "rsi < 30" not "rsi_prev < 30").
++
++<formatting_rules>
++- Use standard Python operators: <, >, <=, >=, ==, and, or
++- Example format only (DO NOT COPY THIS EXACT LOGIC): <entry_condition>price > ema20 and adx > 25</entry_condition>
++- You MUST derive the exact conditions directly from the specific rules of the chosen strategy!
++</formatting_rules>
++</step>
++
++<step n="6" name="WRITE_OUTPUT">
++Produce a JSON object with exactly these 7 keys in this order.
++Do NOT include asset_name or valid_till — they are injected automatically.
++
++<output_schema>
++{
++  "internal_monologue": "Full Step 1-4 reasoning. Cite at least 4 metric values from the packet.",
++  "strategy_used": "Exact strategy name from the candidates, or fallback",
++  "reasoning": "Concise 2-3 sentence summary of why this signal was chosen",
++  "entry_condition": "From Step 5 — uses only available_variables",
++  "exit_condition": "From Step 5 — uses only available_variables",
++  "signal": "BUY or HOLD",
++  "confidence": 0.0
++}
++</output_schema>
++</step>
++</instructions>
++
++<rules>
++- Output valid JSON only. No markdown fences. No commentary outside the JSON.
++- confidence > 0.8 only if ALL entry_confirmation conditions are met
++- confidence > 0.6 only if the majority of entry_confirmation conditions are met
++- signal must be directly derivable from internal_monologue — no contradictions
++- Do not favour or penalise any strategy based on its name — evaluate purely on conditions
++- Ignore short selling trades.
++</rules>"""
++
++        user_msg = f"""<market_data asset="{asset_name}" valid_till="{valid_till}">
++
++<regime detected="{regime_str}" />
++
++<snapshot>
++  <open>{market_data['snapshot']['open']}</open>
++  <high>{market_data['snapshot']['high']}</high>
++  <low>{market_data['snapshot']['low']}</low>
++  <close>{price}</close>
++</snapshot>
++
++<structure>
++  <market_structure>{structure}</market_structure>
++  <pct_change_50>{market_data['trends']['pct_change_50']}%</pct_change_50>
++  <pct_change_10>{market_data['trends']['pct_change_10']}%</pct_change_10>
++</structure>
++
++<indicators type="mean_reversion">
++  <rsi period="14">
++    <current>{rsi_current}</current>
++    <prev>{rsi_prev}</prev>
++    <avg_50>{rsi_avg}</avg_50>
++    <trend>{rsi_trend}</trend>
++    <narrative>{rsi_narrative}</narrative>
++  </rsi>
++
++  <rsi period="5">
++    <current>{rsi5_current}</current>
++    <prev>{rsi5_prev}</prev>
++    <trend>{rsi5_trend}</trend>
++    <narrative>{rsi5_narrative}</narrative>
++  </rsi>
++
++  <bollinger_bands period="20" std="2">
++    <position>{bands.get('position_label', 'N/A')}</position>
++    <upper>{bands.get('upper', 'N/A')}</upper>
++    <mid>{bands.get('mid', 'N/A')}</mid>
++    <lower>{bands.get('lower', 'N/A')}</lower>
++    <narrative>{bb_narrative}</narrative>
++  </bollinger_bands>
++
++  <bollinger_bands period="40" std="2">
++    <position>{bands40.get('position_label', 'N/A')}</position>
++    <upper>{bands40.get('upper', 'N/A')}</upper>
++    <lower>{bands40.get('lower', 'N/A')}</lower>
++    <narrative>{bb40_narrative}</narrative>
++  </bollinger_bands>
++</indicators>
++
++<indicators type="trend_strength">
++  <adx period="14">
++    <value>{adx.get('value', 'N/A')}</value>
++    <non_trending>{adx.get('non_trending', 'N/A')}</non_trending>
++  </adx>
++
++  <volatility>
++    <atr>{atr}</atr>
++    <atr_price_pct>{round(atr_pct * 100, 3)}%</atr_price_pct>
++    <atr_interpretation>{'high — expansion confirmed' if atr_pct > 0.02 else 'low — compression'}</atr_interpretation>
++    <atr_avg_5>{vol.get('atr_avg_5', 'N/A')}</atr_avg_5>
++    <atr_expanding>{vol.get('atr_expanding', 'N/A')}</atr_expanding>
++  </volatility>
++
++  <volume>
++    <current>{volume.get('current', 'N/A')}</current>
++    <avg_50>{volume.get('avg_50', 'N/A')}</avg_50>
++    <avg_20>{volume.get('avg_20', 'N/A')}</avg_20>
++    <is_spike_1_5x>{volume.get('is_spike', 'N/A')}</is_spike_1_5x>
++    <is_capitulation_2x>{volume.get('is_capitulation_spike', 'N/A')}</is_capitulation_2x>
++  </volume>
++</indicators>
++
++<indicators type="ema_state">
++  <ema period="20" role="primary_anchor">
++    <value>{ema.get('value', 'N/A')}</value>
++    <slope>{ema.get('slope', 'N/A')}</slope>
++    <price_rel>{ema.get('price_rel', 'N/A')}</price_rel>
++  </ema>
++
++  <ema_multi periods="9/20/50">
++    <ema9>{ema_m.get('ema9', 'N/A')}</ema9>
++    <ema9_slope>{ema_m.get('ema9_slope', 'N/A')}</ema9_slope>
++    <ema20>{ema_m.get('ema20', 'N/A')}</ema20>
++    <ema50>{ema_m.get('ema50', 'N/A')}</ema50>
++    <ema50_slope>{ema_m.get('ema50_slope', 'N/A')}</ema50_slope>
++    <converging>{ema_m.get('converging', 'N/A')}</converging>
++    <spread_pct>{ema_m.get('spread_pct', 'N/A')}%</spread_pct>
++    <stack_order>{ema_m.get('stack_order', 'N/A')}</stack_order>
++  </ema_multi>
++
++  <ema period="200" role="macro_anchor">
++    <value>{ema200.get('value', 'N/A')}</value>
++    <slope>{ema200.get('slope', 'N/A')}</slope>
++    <price_rel>{ema200.get('price_rel', 'N/A')}</price_rel>
++    <proximity_pct>{ema200.get('proximity_pct', 'N/A')}%</proximity_pct>
++    <near_band_2pct>{ema200.get('near_band', 'N/A')}</near_band_2pct>
++  </ema>
++</indicators>
++
++<donchian_channels>
++  <channel period="10"><high>{levels.get('high_10', 'N/A')}</high><low>{levels.get('low_10', 'N/A')}</low></channel>
++  <channel period="20"><high>{levels.get('high_20', 'N/A')}</high><low>{levels.get('low_20', 'N/A')}</low></channel>
++  <channel period="50"><high>{levels.get('high_50', 'N/A')}</high><low>{levels.get('low_50', 'N/A')}</low></channel>
++  <channel period="55"><high>{levels.get('high_55', 'N/A')}</high><low>{levels.get('low_55', 'N/A')}</low></channel>
++</donchian_channels>
++
++<sentiment score="{sentiment_score}" scale="0.0=Extreme_Fear | 0.5=Neutral | 1.0=Extreme_Greed" />
++
++<strategy_candidates>
++{strategy_context if strategy_context else "No strategies retrieved. Apply standard institutional logic based on regime and confluence of indicators above."}
++</strategy_candidates>
++
++</market_data>
++
++Follow Steps 1 through 6 from your instructions and produce the JSON output."""
++        # ── LLM call ──────────────────────────────────────────────────────────
++        try:
++            # temporarily disabled for testing purposes
++            raise Exception("Gemini API Disabled")
++            response = self.client.models.generate_content(
++                model=self.model_name,
++                contents=user_msg,
++                config=types.GenerateContentConfig(
++                    system_instruction=system_msg,
++                    temperature=0,
++                    response_mime_type="application/json"
++                )
++            )
++            parsed = json.loads(response.text)
++        except Exception as e:
++            print(f"Gemini API failed: {e}. Falling back to NVIDIA (deepseek-v4-pro)...")
++            try:
++                
++                print(system_msg,file=open('system.txt','a'),)
++                print(user_msg,file=open('user.txt','a'))
++                response = self.nvidia_llm.invoke([("system", system_msg), ("human", user_msg)])
++                
++                try:
++                    usage = getattr(response, "usage_metadata", None) or response.response_metadata.get("token_usage", {})
++                    prompt_tokens = usage.get('input_tokens', usage.get('prompt_tokens', '?'))
++                    completion_tokens = usage.get('output_tokens', usage.get('completion_tokens', '?'))
++                    total_tokens = usage.get('total_tokens', '?')
++                    print(f"[NVIDIA Usage] Prompt Context: {prompt_tokens} tokens | Generated: {completion_tokens} tokens | Total: {total_tokens} tokens")
++                except Exception as e_usage:
++                    print(f"[NVIDIA Usage] Could not parse usage metadata: {e_usage}")
++
++                clean_content = self._clean_json_response(response.content)
++                parsed = json.loads(clean_content)
++            except Exception as nvidia_e:
++                print(f"NVIDIA fallback also failed: {nvidia_e}")
++                raise e # Raise the original exception if fallback fails
++
++        try:
++            parsed["asset_name"] = asset_name
++            parsed["valid_till"] = valid_till
++            return AnalystSignal.model_validate(parsed)
++        except Exception as e:
++            print(f"--- DEBUG: LLM Output parsing or validation failed ---")
++            raise e
++
++    def _clean_json_response(self, content: str) -> str:
++        match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", content)
++        if match:
++            return match.group(1)
++        return content.strip()
++
++
++# ══════════════════════════════════════════════════════════════════════════════
+diff --git a/src/agents/risk_manager.py b/src/agents/risk_manager.py
+index ba56e18..68cb60c 100644
+--- a/src/agents/risk_manager.py
++++ b/src/agents/risk_manager.py
+@@ -1,59 +1,8 @@
+-import json
+-import os
+ from datetime import datetime, timezone, timedelta
+ from pydantic import BaseModel
+ from src.schema.models import AnalystSignal
+ 
+ 
+-# ── JSON-derived data ─────────────────────────────────────────────────────────
+-# Single source of truth for fields that live in the strategies JSON.
+-# risk_profile  : loaded per strategy — eliminates drift with operational_meta
+-# SIDEWAYS_ALLOWED: derived from regime.primary / also_valid — any strategy
+-#                   whose regime includes Sideways (and doesn't forbid it)
+-#                   is automatically exempt from the sideways veto.
+-
+-_STRATEGIES_JSON_PATH = "data/strategies/strategies_processed.json"
+-
+-
+-def _load_strategy_data(path: str) -> tuple[dict[str, str], set[str]]:
+-    """
+-    Reads strategies_processed.json and returns:
+-      risk_profiles   : {strategy_name: "Aggressive" | "Conservative"}
+-      sideways_allowed: set of strategy names valid in a Sideways regime
+-    """
+-    risk_profiles: dict[str, str] = {}
+-    sideways_allowed: set[str]    = set()
+-
+-    if not os.path.exists(path):
+-        print(f"[RiskManager] WARNING: strategies JSON not found at '{path}'. "
+-              "All profiles will default to Conservative.")
+-        return risk_profiles, sideways_allowed
+-
+-    with open(path, "r") as f:
+-        strategies: list[dict] = json.load(f)
+-
+-    for s in strategies:
+-        name    = s["metadata"]["name"]
+-        regime  = s["metadata"]["regime"]          # dict: primary / also_valid / forbidden
+-        profile = s["operational_meta"]["risk_profile"]
+-
+-        risk_profiles[name] = profile
+-
+-        primary    = regime.get("primary", "")
+-        also_valid = regime.get("also_valid", [])
+-        forbidden  = regime.get("forbidden", [])
+-
+-        # A strategy is sideways-allowed if Sideways appears in its valid regimes
+-        # AND is not explicitly forbidden (the latter is a safety guard).
+-        if "Sideways" in ([primary] + also_valid) and "Sideways" not in forbidden:
+-            sideways_allowed.add(name)
+-
+-    return risk_profiles, sideways_allowed
+-
+-
+-_RISK_PROFILES, SIDEWAYS_ALLOWED = _load_strategy_data(_STRATEGIES_JSON_PATH)
+-
+-
+ # ── Output Schema ─────────────────────────────────────────────────────────────
+ 
+ class RiskAssessment(BaseModel):
+@@ -74,16 +23,19 @@ class RiskAssessment(BaseModel):
+ STRATEGY_REGISTRY = {
+     # ── Aggressive — fixed R:R targets ───────────────────────────────────────
+     "Volatility Breakout Scalping": {
++        "profile":      "Aggressive",
+         "fixed_target": True,
+         "rsi_veto":     True,
+         "guards":       [],
+     },
+     "Bollinger Bands + RSI Extremes": {
++        "profile":      "Aggressive",
+         "fixed_target": True,
+         "rsi_veto":     False,   # RSI extremes ARE the entry signal — veto contradictory
+         "guards":       [],
+     },
+     "Bottom Bollinger Band Mean Reversion": {
++        "profile":      "Aggressive",
+         "fixed_target": True,
+         "rsi_veto":     True,
+         "guards":       [],
+@@ -91,11 +43,13 @@ STRATEGY_REGISTRY = {
+ 
+     # ── Aggressive — volatile regime ──────────────────────────────────────────
+     "ATR Expansion Breakout": {
++        "profile":      "Aggressive",
+         "fixed_target": True,
+         "rsi_veto":     True,
+         "guards":       ["atr_expanding"],
+     },
+     "Donchian Volatility Range Breach": {
++        "profile":      "Aggressive",
+         "fixed_target": True,
+         "rsi_veto":     True,
+         "guards":       ["atr_expanding"],
+@@ -103,11 +57,13 @@ STRATEGY_REGISTRY = {
+ 
+     # ── Conservative — Turtle: profits run, no fixed target ──────────────────
+     "Turtle Strategy (System 1 - 20-Day Breakout)": {
++        "profile":      "Conservative",
+         "fixed_target": False,
+         "rsi_veto":     True,
+         "guards":       [],
+     },
+     "Turtle Strategy (System 2 - 55-Day Macro Breakout)": {
++        "profile":      "Conservative",
+         "fixed_target": False,
+         "rsi_veto":     True,
+         "guards":       [],
+@@ -115,11 +71,13 @@ STRATEGY_REGISTRY = {
+ 
+     # ── Conservative — trending, explicit take-profit logic ───────────────────
+     "200 MA Macro Pullback Accumulation": {
++        "profile":      "Conservative",
+         "fixed_target": True,
+         "rsi_veto":     True,
+         "guards":       ["ema200_upsloping"],
+     },
+     "MA Twist & Convergence Continuation": {
++        "profile":      "Conservative",
+         "fixed_target": True,
+         "rsi_veto":     True,
+         "guards":       ["ma_converging"],
+@@ -127,16 +85,19 @@ STRATEGY_REGISTRY = {
+ 
+     # ── Conservative — sideways regime ────────────────────────────────────────
+     "RSI Divergence Fade": {
++        "profile":      "Conservative",
+         "fixed_target": True,
+         "rsi_veto":     False,   # RSI divergence IS the entry signal — veto contradictory
+         "guards":       [],
+     },
+     "Donchian Range Oscillation": {
++        "profile":      "Conservative",
+         "fixed_target": True,
+         "rsi_veto":     False,   # RSI overbought/oversold IS the confirmation signal
+         "guards":       [],
+     },
+     "EMA20 Mean Reversion": {
++        "profile":      "Conservative",
+         "fixed_target": True,
+         "rsi_veto":     True,
+         "guards":       [],
+@@ -144,12 +105,21 @@ STRATEGY_REGISTRY = {
+ 
+     # ── Fallback ──────────────────────────────────────────────────────────────
+     "fallback": {
++        "profile":      "Conservative",
+         "fixed_target": True,
+         "rsi_veto":     True,
+         "guards":       [],
+     },
+ }
+ 
++# ── Strategies exempt from the sideways regime veto ──────────────────────────
++# These strategies are explicitly designed for sideways/ranging conditions.
++SIDEWAYS_ALLOWED = {
++    "RSI Divergence Fade",
++    "Donchian Range Oscillation",
++    "EMA20 Mean Reversion",
++    # "Bollinger Bands + RSI Extremes",
++}
+ 
+ # ── Strategies exempt from the sentiment veto ─────────────────────────────────
+ # These strategies use extreme sentiment as a mandatory entry condition,
+@@ -208,12 +178,8 @@ class RiskManagerAgent:
+         market_data: dict,
+         sentiment_score: float,
+         current_portfolio: list,
+-        available_balance: float = None,
+     ) -> RiskAssessment:
+ 
+-        if available_balance is not None:
+-            self.total_equity = available_balance
+-
+         entry_price   = market_data['snapshot']['close']
+         atr           = market_data['volatility']['atr']
+         atr_expanding = market_data['volatility']['atr_expanding']
+@@ -225,14 +191,11 @@ class RiskManagerAgent:
+         ma_converging = market_data['ema_multi']['converging']
+         ma_stack      = market_data['ema_multi']['stack_order']
+ 
+-        # After
+         strategy_meta = STRATEGY_REGISTRY.get(
+             analyst_signal.strategy_used,
+             STRATEGY_REGISTRY["fallback"]
+         )
+-        # profile is sourced from the JSON to keep it in sync with operational_meta.
+-        # Falls back to "Conservative" for unknown strategies or if JSON is unavailable.
+-        profile      = _RISK_PROFILES.get(analyst_signal.strategy_used, "Conservative")
++        profile      = strategy_meta["profile"]
+         fixed_target = strategy_meta["fixed_target"]
+         rsi_veto     = strategy_meta["rsi_veto"]
+         guards       = strategy_meta["guards"]
+diff --git a/src/core/knowledge_base_lms.py b/src/core/knowledge_base_lms.py
+index ba2f718..98bda57 100644
+--- a/src/core/knowledge_base_lms.py
++++ b/src/core/knowledge_base_lms.py
+@@ -1,68 +1,13 @@
+ import json
+ import os
+-import shutil
+ from langchain_core.documents import Document
+ from langchain_openai import OpenAIEmbeddings
+ from langchain_chroma import Chroma
+ 
+-
+-# ── Prompt-payload builder ────────────────────────────────────────────────────
+-# Separate function so it can be unit-tested independently of ChromaDB.
+-# This is what the LLM sees — concise, structured, token-efficient.
+-#
+-# Excluded from prompt payload (lives in embedding text only):
+-#   theory.principle / market_inefficiency  → prose, aids retrieval not evaluation
+-#   theory.synergy_markers                  → human labels, LLM uses structured fields
+-#   exit_logic.take_profit                  → informational, levels set by RiskManager
+-#   operational_meta.dependency_indicators  → redundant with structured conditions
+-
+-def _build_prompt_payload(strategy: dict) -> dict:
+-    m    = strategy["metadata"]
+-    mech = strategy["mechanics"]
+-    gate = mech["logic_gate"]
+-    op   = strategy["operational_meta"]
+-
+-    return {
+-        "name":                          m["name"],
+-        "regime":                        m["regime"],      # full {primary, also_valid, forbidden} object
+-        "risk_profile":                  op["risk_profile"],
+-        "entry_primary":                 gate["entry_primary"],
+-        "entry_primary_structured":      gate["entry_primary_structured"],
+-        "entry_confirmation":            gate["entry_confirmation"],
+-        "entry_confirmation_structured": gate["entry_confirmation_structured"],
+-        "conflicts_structured":          gate["conflicts_structured"],
+-        "exit_condition":                mech["exit_logic"]["exit_condition"],
+-        "exit_condition_structured":     mech["exit_logic"]["exit_condition_structured"],
+-    }
+-
+-
+ class TradingKnowledgeBase:
+-    """
+-    Vector-backed strategy library using ChromaDB + nomic-embed-text (via LM Studio).
+-
+-    Design decisions
+-    ────────────────
+-    Embedding text    — rich prose from theory + human-readable entry/exit descriptions.
+-                        Semantic richness here drives retrieval quality.
+-    ChromaDB metadata — stores flat regime strings for $or/$contains filtering,
+-                        plus a lean prompt_payload JSON for injection. The full
+-                        strategy JSON is NOT stored in metadata to avoid token bloat.
+-    Regime filter     — multi-value: matches primary AND also_valid regimes. Strategies
+-                        in the forbidden list are removed via post-filter (ChromaDB
+-                        does not support "not contains" on string metadata).
+-    Score threshold   — applied as both a fetch-time inflation (fetch_k = k*3) and a
+-                        post-filter, so callers reliably get up to k results back.
+-    Prompt payload    — stripped-down dict; excludes all prose the LLM does not evaluate.
+-    """
+-
+-    def __init__(
+-        self,
+-        json_path: str = "data/strategies/strategies_processed.json",
+-        db_dir: str    = "database/chroma_db",
+-    ):
++    def __init__(self, json_path="data/strategies/strategies_processed.json", db_dir="database/chroma_db"):
+         self.json_path = json_path
+-        self.db_dir    = db_dir
+-
++        self.db_dir = db_dir
+         self.embeddings = OpenAIEmbeddings(
+             base_url="http://localhost:1234/v1",
+             api_key="lm-studio",
+@@ -75,90 +20,53 @@ class TradingKnowledgeBase:
+             print("--- Loading existing Knowledge Base ---")
+             self.vector_db = Chroma(
+                 persist_directory=self.db_dir,
+-                embedding_function=self.embeddings,
++                embedding_function=self.embeddings
+             )
+         else:
+             print("--- Creating new Knowledge Base ---")
+             self._create_db()
+ 
+-    # ── Indexing ──────────────────────────────────────────────────────────────
+-
+     def _strategy_to_document(self, strategy: dict) -> Document:
+         """
+-        Build the ChromaDB Document for one strategy.
+-
+-        page_content  → rich prose text, optimised for semantic embedding.
+-        metadata      → flat scalars used for filtering + lean prompt_payload JSON.
+-
+-        ChromaDB metadata only supports scalar types (str, int, float, bool).
+-        The regime object's lists are serialized as comma-separated strings so
+-        ChromaDB's $contains operator can match substrings for also_valid lookups.
++        Flatten each strategy object into a single rich text block for embedding.
++        Metadata is stored separately for filtering.
+         """
+-        m    = strategy["metadata"]
+-        t    = strategy["theory"]
++        m = strategy["metadata"]
++        t = strategy["theory"]
+         mech = strategy["mechanics"]
+-        op   = strategy["operational_meta"]
+-        gate = mech["logic_gate"]
++        op = strategy["operational_meta"]
+ 
+-        regime: dict = m["regime"]   # {primary, also_valid, forbidden}
+-
+-        # ── Regime description for embedding text ─────────────────────────────
+-        also_valid_str = (
+-            f" (also valid in: {', '.join(regime['also_valid'])})"
+-            if regime.get("also_valid")
+-            else ""
+-        )
+-        forbidden_str = (
+-            f" (forbidden in: {', '.join(regime['forbidden'])})"
+-            if regime.get("forbidden")
+-            else ""
+-        )
+-
+-        # Filter nulls before joining — some structured conditions are null
+-        # for conditions that cannot be mechanically expressed
+-        entry_primary_text = " ".join(
+-            x for x in gate["entry_primary"] if x is not None
+-        )
+-        entry_confirm_text = " ".join(
+-            x for x in gate["entry_confirmation"] if x is not None
+-        )
+-
+-        # ── Embedding text ────────────────────────────────────────────────────
++        # Build a semantically rich text block — this is what gets embedded
+         text = f"""
+-Strategy: {m['name']}
+-Market Regime: {regime['primary']}{also_valid_str}{forbidden_str}
++        Strategy: {m['name']}
++        Market Regime: {m['regime']}
+ 
+-Principle: {t['principle']}
++        Principle: {t['principle']}
+ 
+-Market Inefficiency Exploited: {t['market_inefficiency']}
++        Market Inefficiency Exploited: {t['market_inefficiency']}
+ 
+-Works well with: {', '.join(t['synergy_markers']['works_well_with'])}
+-Conflicts with: {', '.join(t['synergy_markers']['conflicts_with'])}
++        Works well with: {', '.join(t['synergy_markers']['works_well_with'])}
++        Conflicts with: {', '.join(t['synergy_markers']['conflicts_with'])}
+ 
+-Entry Conditions: {entry_primary_text}
+-Confirmation Signals: {entry_confirm_text}
++        Entry Conditions: {' '.join(mech['logic_gate']['entry_primary'])}
++        Confirmation Signals: {' '.join(mech['logic_gate']['entry_confirmation'])}
+ 
+-Take Profit: {mech['exit_logic']['take_profit']}
+-Stop Loss / Exit: {mech['exit_logic']['exit_condition']}
++        Take Profit: {mech['exit_logic']['take_profit']}
++        Stop Loss / Exit: {mech['exit_logic']['exit_condition']}
+ 
+-Risk Profile: {op['risk_profile']}
+-Required Indicators: {', '.join(op['dependency_indicators'])}
++        Risk Profile: {op['risk_profile']}
++        Required Indicators: {', '.join(op['dependency_indicators'])}
+         """.strip()
+ 
+-        # ── ChromaDB metadata ─────────────────────────────────────────────────
+-        also_valid_csv = ",".join(regime.get("also_valid", []))
+-        forbidden_csv  = ",".join(regime.get("forbidden", []))
+-
+         return Document(
+             page_content=text,
+             metadata={
+-                "name":              m["name"],
+-                "regime_primary":    regime["primary"],
+-                "regime_also_valid": also_valid_csv,   # e.g. "Trending,Volatile" or ""
+-                "regime_forbidden":  forbidden_csv,    # e.g. "Sideways" or ""
+-                "risk_profile":      op["risk_profile"],
+-                "prompt_payload":    json.dumps(_build_prompt_payload(strategy)),
+-            },
++                "name": m["name"],
++                "regime": m["regime"].split("/")[0].strip(),
++                "risk_profile": op["risk_profile"],
++                # Store full strategy as JSON string for retrieval
++                "full_json": json.dumps(strategy)
++            }
+         )
+ 
+     def _create_db(self):
+@@ -170,130 +78,26 @@ Required Indicators: {', '.join(op['dependency_indicators'])}
+         self.vector_db = Chroma.from_documents(
+             documents=documents,
+             embedding=self.embeddings,
+-            persist_directory=self.db_dir,
++            persist_directory=self.db_dir
+         )
+-        print(f"--- Indexed {len(documents)} strategies into Knowledge Base ---")
+-
+-    def rebuild(self):
+-        """
+-        Force a full rebuild of the ChromaDB store from the source JSON.
+-        Call this after updating Strategies_v2.json.
+-        """
+-        if os.path.exists(self.db_dir):
+-            shutil.rmtree(self.db_dir)
+-            print(f"--- Cleared existing KB at {self.db_dir} ---")
+-        self._create_db()
+-
+-    # ── Retrieval ─────────────────────────────────────────────────────────────
+-
+-    def _build_regime_filter(self, regime: str | None) -> dict | None:
+-        """
+-        Build a ChromaDB $or filter that matches strategies where:
+-          - regime_primary == regime, OR
+-          - regime_also_valid contains regime (substring match on CSV string)
+-
+-        Returns None when regime is None (undetected market structure).
+-        The caller will then run an unfiltered search and rely solely on
+-        the score threshold and forbidden post-filter.
+-        """
+-        if regime is None:
+-            return None
+-
+-        return {
+-            "$or": [
+-                {"regime_primary":    {"$eq": regime}},
+-                {"regime_also_valid": {"$contains": regime}},
+-            ]
+-        }
+-
+-    def _is_forbidden(self, doc_metadata: dict, regime: str | None) -> bool:
+-        """
+-        Return True if the current regime appears in this strategy's forbidden list.
+-        Post-filter only — ChromaDB cannot do "not contains" on string metadata.
+-        """
+-        if not regime:
+-            return False
+-        forbidden_csv = doc_metadata.get("regime_forbidden", "")
+-        if not forbidden_csv:
+-            return False
+-        forbidden = [r.strip() for r in forbidden_csv.split(",")]
+-        return regime in forbidden
+-
+-    def get_relevant_strategies(
+-        self,
+-        query: str,
+-        k: int = 2,
+-        score_threshold: float = 0.40,
+-        regime_filter: str | None = None,
+-    ) -> list[dict]:
+-        """
+-        Retrieve the top-k strategies most semantically similar to query,
+-        filtered by regime compatibility and score threshold.
+-
+-        Parameters
+-        ----------
+-        query           : Market state description built by _build_query()
+-        k               : Maximum strategies to return after all filtering
+-        score_threshold : Minimum relevance score (0.0–1.0)
+-        regime_filter   : Current regime string or None
+-
+-        Returns
+-        -------
+-        List of lean prompt payload dicts — not full strategy JSON.
+-        Empty list if no results pass the threshold/regime filters.
+-        """
+-        # Inflate fetch count to absorb expected post-filter losses
+-        # (forbidden strategies + below-threshold results).
+-        fetch_k = k * 3
+-
+-        chroma_filter = self._build_regime_filter(regime_filter)
+-
+-        try:
+-            if chroma_filter:
+-                results = self.vector_db.similarity_search_with_relevance_scores(
+-                    query, k=fetch_k, filter=chroma_filter
+-                )
+-            else:
+-                # No regime detected — unfiltered search, forbidden post-filter still runs
+-                results = self.vector_db.similarity_search_with_relevance_scores(
+-                    query, k=fetch_k
+-                )
+-        except Exception as e:
+-            print(f"[KB] ChromaDB search failed: {e}. Returning empty.")
+-            return []
+-
+-        # ── Debug log ─────────────────────────────────────────────────────────
+-        print("--- KB RETRIEVAL ---")
++        print(f"--- Indexed {len(documents)} strategies ---")
++
++    def get_relevant_strategies(self, query: str, k=3, score_threshold=0.3, regime_filter: str = None) -> list[dict]:
++        search_kwargs = {"k": k}  # Remove threshold temporarily
++        
++        if regime_filter:
++            search_kwargs["filter"] = {"regime": regime_filter}
++
++        results = self.vector_db.similarity_search_with_relevance_scores(query, **search_kwargs)
++        
++        # DEBUG — remove after diagnosis
++        print("--- KB DEBUG SCORES ---")
+         for doc, score in results:
+-            meta           = doc.metadata
+-            forbidden_flag = " ⛔ FORBIDDEN" if self._is_forbidden(meta, regime_filter) else ""
+-            pass_flag      = "✓" if score >= score_threshold else "✗"
+-            print(
+-                f"  [{pass_flag}] {meta['name']}"
+-                f" | primary={meta['regime_primary']}"
+-                f" | also_valid=[{meta['regime_also_valid'] or 'none'}]"
+-                f" | score={score:.4f}"
+-                f"{forbidden_flag}"
+-            )
+-        print("--------------------")
+-
+-        # ── Post-filters ──────────────────────────────────────────────────────
+-        filtered = [
+-            (doc, score)
+-            for doc, score in results
+-            if score >= score_threshold
+-            and not self._is_forbidden(doc.metadata, regime_filter)
+-        ]
++            print(f"  {doc.metadata['name']} [{doc.metadata['regime']}] → score: {score:.4f}")
++        print("-----------------------")
+ 
+-        if not filtered:
+-            print(
+-                f"[KB] No strategies passed filters "
+-                f"(regime={regime_filter}, threshold={score_threshold})."
+-            )
++        results = [(doc, score) for doc, score in results if score >= score_threshold]
++        if not results:
+             return []
+ 
+-        # Sort descending by score, cap at k
+-        filtered.sort(key=lambda x: x[1], reverse=True)
+-        top = filtered[:k]
+-
+-        return [json.loads(doc.metadata["prompt_payload"]) for doc, _ in top]
+\ No newline at end of file
++        return [json.loads(doc.metadata["full_json"]) for doc, score in results]
+\ No newline at end of file
+diff --git a/src/core/knowledge_base_nvidia.py b/src/core/knowledge_base_nvidia.py
+new file mode 100644
+index 0000000..fc795fa
+--- /dev/null
++++ b/src/core/knowledge_base_nvidia.py
+@@ -0,0 +1,102 @@
++import json
++import os
++from langchain_core.documents import Document
++from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings
++from langchain_chroma import Chroma
++
++class TradingKnowledgeBase:
++    def __init__(self, json_path="data/strategies/strategies_processed.json", db_dir="database/chroma_db_nvidia"):
++        self.json_path = json_path
++        self.db_dir = db_dir
++        self.embeddings = NVIDIAEmbeddings(
++            model="nvidia/nv-embedqa-e5-v5",
++            api_key="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",
++            truncate="END",
++        )
++        self.vector_db = None
++
++        if os.path.exists(self.db_dir) and os.listdir(self.db_dir):
++            print("--- Loading existing Knowledge Base ---")
++            self.vector_db = Chroma(
++                persist_directory=self.db_dir,
++                embedding_function=self.embeddings
++            )
++        else:
++            print("--- Creating new Knowledge Base ---")
++            self._create_db()
++
++    def _strategy_to_document(self, strategy: dict) -> Document:
++        """
++        Flatten each strategy object into a single rich text block for embedding.
++        Metadata is stored separately for filtering.
++        """
++        m = strategy["metadata"]
++        t = strategy["theory"]
++        mech = strategy["mechanics"]
++        op = strategy["operational_meta"]
++
++        # Build a semantically rich text block — this is what gets embedded
++        text = f"""
++        Strategy: {m['name']}
++        Market Regime: {m['regime']}
++
++        Principle: {t['principle']}
++
++        Market Inefficiency Exploited: {t['market_inefficiency']}
++
++        Works well with: {', '.join(t['synergy_markers']['works_well_with'])}
++        Conflicts with: {', '.join(t['synergy_markers']['conflicts_with'])}
++
++        Entry Conditions: {' '.join(mech['logic_gate']['entry_primary'])}
++        Confirmation Signals: {' '.join(mech['logic_gate']['entry_confirmation'])}
++
++        Take Profit: {mech['exit_logic']['take_profit']}
++        Stop Loss / Exit: {mech['exit_logic']['exit_condition']}
++
++        Risk Profile: {op['risk_profile']}
++        Required Indicators: {', '.join(op['dependency_indicators'])}
++        """.strip()
++
++        return Document(
++            page_content=text,
++            metadata={
++                "name": m["name"],
++                "regime": m["regime"].split("/")[0].strip(),
++                "risk_profile": op["risk_profile"],
++                # Store full strategy as JSON string for retrieval
++                "full_json": json.dumps(strategy)
++            }
++        )
++
++    def _create_db(self):
++        with open(self.json_path, "r") as f:
++            strategies = json.load(f)
++
++        documents = [self._strategy_to_document(s) for s in strategies]
++
++        self.vector_db = Chroma.from_documents(
++            documents=documents,
++            embedding=self.embeddings,
++            persist_directory=self.db_dir
++        )
++        print(f"--- Indexed {len(documents)} strategies ---")
++
++    def get_relevant_strategies(self, query: str, k=3, score_threshold=0.3, regime_filter: str = None) -> list[dict]:
++        search_kwargs = {"k": k}  # Remove threshold temporarily
++        
++        if regime_filter:
++            search_kwargs["filter"] = {"regime": regime_filter}
++
++        results = self.vector_db.similarity_search_with_relevance_scores(query, **search_kwargs)
++        
++        # DEBUG — remove after diagnosis
++        print("--- KB DEBUG SCORES ---")
++        for doc, score in results:
++            print(f"  {doc.metadata['name']} [{doc.metadata['regime']}] → score: {score:.4f}")
++        print("-----------------------")
++
++        results = [(doc, score) for doc, score in results if score >= score_threshold]
++        if not results:
++            return []
++
++        return [json.loads(doc.metadata["full_json"]) for doc, score in results]
+\ No newline at end of file

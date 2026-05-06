@@ -1,0 +1,749 @@
+diff --git a/backtesting.py b/backtesting.py
+index b366382..31949a9 100644
+--- a/backtesting.py
++++ b/backtesting.py
+@@ -236,8 +236,7 @@ class BacktestEngine:
+                         analyst_signal=signal,
+                         market_data=packet,
+                         sentiment_score=0.5,
+-                        current_portfolio=self.portfolio,
+-                        available_balance=self.balance
++                        current_portfolio=self.portfolio
+                     )
+                     print(signal,verdict)
+                     
+diff --git a/backtesting_lms.py b/backtesting_lms.py
+index 3674ca2..6335379 100644
+--- a/backtesting_lms.py
++++ b/backtesting_lms.py
+@@ -126,7 +126,7 @@ class BacktestEngine:
+             return condition_str
+             
+         if not condition_str:
+-            return True
++            return False
+             
+         condition_str = str(condition_str)
+         condition_str = html.unescape(condition_str)
+@@ -255,17 +255,23 @@ class BacktestEngine:
+                 exit_triggered = False
+                 exit_reason = ""
+                 
+-                if row["low"] <= trade['stop_loss']:
+-                    exit_triggered, exit_reason = True, "Stop Loss"
+-                elif row["high"] >= trade['target']:
++                if row["high"] >= trade['target']:
+                     exit_triggered, exit_reason = True, "Target"
++                elif row["low"] <= trade['stop_loss']:
++                    exit_triggered, exit_reason = True, "Stop Loss"
+                 elif self._evaluate_condition(trade['exit_condition'], locals_dict):
+                     exit_triggered, exit_reason = True, "Dynamic Condition"
+                     
+                 if exit_triggered:
+-                    pnl = ((price - trade['entry_price']) / trade['entry_price']) * trade['position_size']
++                    if exit_reason == "Stop Loss":
++                        exit_price = trade['stop_loss']
++                    elif exit_reason == "Target":
++                        exit_price = trade['target']
++                    elif exit_reason == "Dynamic Condition":
++                        exit_price = price
++                    pnl = ((exit_price - trade['entry_price']) / trade['entry_price']) * trade['position_size']
+                     self.balance += trade['position_size'] + pnl
+-                    trade['exit_price'] = price
++                    trade['exit_price'] = exit_price
+                     trade['exit_time'] = timestamp
+                     trade['exit_reason'] = exit_reason
+                     trade['pnl'] = pnl
+@@ -294,8 +300,7 @@ class BacktestEngine:
+                         analyst_signal=signal,
+                         market_data=packet,
+                         sentiment_score=0.5,
+-                        current_portfolio=self.portfolio,
+-                        available_balance=self.balance
++                        current_portfolio=self.portfolio
+                     )
+                     print(signal,verdict)
+                     
+@@ -316,7 +321,7 @@ class BacktestEngine:
+             # print("4 step")
+             if verdict.signal == "BUY":
+                 # We only take ONE position at a time for simplicity in this backtest
+-                if len(self.portfolio) == 0:
++                if len(self.portfolio) >= 0:
+                     pos_size = verdict.position_size
+                     if pos_size > self.balance:
+                         pos_size = self.balance # Constrain to balance
+diff --git a/src/agents/analyst_lms.py b/src/agents/analyst_lms.py
+index 12d690e..2239504 100644
+--- a/src/agents/analyst_lms.py
++++ b/src/agents/analyst_lms.py
+@@ -1,9 +1,12 @@
+ import json
+-import re
+ from datetime import datetime, timezone, timedelta
+ from dotenv import dotenv_values
+ from google import genai
+ from google.genai import types
++import pandas as pd
++import numpy as np
++import requests
++import re
+ from langchain_openai import ChatOpenAI
+ from src.schema.models import AnalystSignal
+ from src.core.knowledge_base_lms import TradingKnowledgeBase
+@@ -294,8 +297,8 @@ class AnalystAgent:
+         bands   = market_data.get('bands', {})
+         bands40 = market_data.get('bands40', {})
+         adx     = market_data.get('adx', {})
+-        vol     = market_data.get('volatility', {})
+-
++        vol     = market_data.get('volatility', {})     
++        
+         # ── Prompts ───────────────────────────────────────────────────────────
+         system_msg = """<role>You are an Institutional Grade Quantitative Analyst.</role>
+ 
+@@ -311,35 +314,22 @@ State the regime explicitly: Trending, Volatile, or Sideways.
+ <step n="2" name="STRATEGY_SELECTION">
+ Review each strategy candidate from the strategy_candidates section.
+ For each one ask:
+-  a) REGIME CHECK — the strategy's regime field has three sub-fields:
+-       - primary     : the regime this strategy is designed for
+-       - also_valid  : additional regimes where it is still valid
+-       - forbidden   : regimes where it must NEVER be used
+-     The strategy is eligible if the current regime matches primary OR appears in also_valid.
+-     If the current regime appears in forbidden, DISCARD the strategy immediately.
++  a) Does its regime tag match the current regime?
+   b) Does the current market satisfy its entry_primary condition?
+-  c) CONFLICT CHECK — evaluate each expression in conflicts_structured against the current
+-     packet values (e.g. "atr_expanding == false" means check the atr_expanding field directly).
+-     If ANY expression evaluates to True for the current market, DISCARD the strategy.
++  c) Does anything in its conflicts_with list describe the current market? If yes, DISCARD it.
+ Select the single best-fit strategy. If none fit cleanly, write "fallback".
+ </step>
+ 
+ <step n="3" name="CONFLUENCE_CHECK">
+ List every entry_confirmation condition from the chosen strategy.
+-For each condition:
+-  - If entry_confirmation_structured is not null for that condition, evaluate the structured
+-    expression directly against the current packet values and state YES or NO with the value cited.
+-  - If entry_confirmation_structured is null for that condition, evaluate the prose description
+-    using the packet data as best you can and state YES or NO with your reasoning.
+-Count satisfied conditions vs total. Be precise — cite actual numeric values from the packet.
++For each condition state explicitly: does the current packet data satisfy it? YES or NO.
++Count satisfied conditions vs total. Be precise — cite actual values from the packet.
+ </step>
+ 
+ <step n="4" name="SIGNAL_DECISION">
+ Decision rules:
+ - All or most confirmations met → consider BUY
+ - Fewer than half met → HOLD
+-- Any hard conflict present → HOLD
+-- Sideways regime → HOLD unless confluence is unambiguous and strong
+ </step>
+ 
+ <step n="5" name="SYNTHESIZE_CONDITIONS">
+@@ -351,8 +341,7 @@ You MUST use ONLY the following variable names (these are the exact column names
+ price, open, high, low, close, volume,
+ rsi, rsi5, ema9, ema20, ema50, ema200,
+ bb_upper, bb_lower, bb_mid, bb40_upper, bb40_lower,
+-adx, atr, atr_avg_5, atr_expanding,
+-high_10, low_10, high_20, low_20, high_50, low_50, high_55, low_55
++adx, atr, atr_avg_5, atr_expanding
+ </available_variables>
+ 
+ To reference the previous candle's value, the backtester does NOT have _prev columns.
+@@ -384,11 +373,12 @@ Do NOT include asset_name or valid_till — they are injected automatically.
+ </instructions>
+ 
+ <rules>
++- Output valid JSON only. No markdown fences. No commentary outside the JSON.
+ - confidence > 0.8 only if ALL entry_confirmation conditions are met
+ - confidence > 0.6 only if the majority of entry_confirmation conditions are met
+ - signal must be directly derivable from internal_monologue — no contradictions
+ - Do not favour or penalise any strategy based on its name — evaluate purely on conditions
+-- Output valid JSON only. No markdown fences. No commentary outside the JSON.
++- Ignore short selling trades.
+ </rules>"""
+ 
+         user_msg = f"""<market_data asset="{asset_name}" valid_till="{valid_till}">
+@@ -506,7 +496,6 @@ Do NOT include asset_name or valid_till — they are injected automatically.
+ </market_data>
+ 
+ Follow Steps 1 through 6 from your instructions and produce the JSON output."""
+-
+         # ── LLM call ──────────────────────────────────────────────────────────
+         try:
+             # temporarily disabled for testing purposes
+@@ -524,12 +513,25 @@ Follow Steps 1 through 6 from your instructions and produce the JSON output."""
+         except Exception as e:
+             print(f"Gemini API failed: {e}. Falling back to local LM Studio (gemma4:e2b)...")
+             try:
++                
++                print(system_msg,file=open('system.txt','a'),)
++                print(user_msg,file=open('user.txt','a'))
+                 response = self.lmstudio_llm.invoke([("system", system_msg), ("human", user_msg)])
++                
++                try:
++                    usage = getattr(response, "usage_metadata", None) or response.response_metadata.get("token_usage", {})
++                    prompt_tokens = usage.get('input_tokens', usage.get('prompt_tokens', '?'))
++                    completion_tokens = usage.get('output_tokens', usage.get('completion_tokens', '?'))
++                    total_tokens = usage.get('total_tokens', '?')
++                    print(f"[LM Studio Usage] Prompt Context: {prompt_tokens} tokens | Generated: {completion_tokens} tokens | Total: {total_tokens} tokens")
++                except Exception as e_usage:
++                    print(f"[LM Studio Usage] Could not parse usage metadata: {e_usage}")
++
+                 clean_content = self._clean_json_response(response.content)
+                 parsed = json.loads(clean_content)
+             except Exception as lms_e:
+                 print(f"LM Studio fallback also failed: {lms_e}")
+-                raise e  # intentionally preserved per request
++                raise e # Raise the original exception if fallback fails
+ 
+         try:
+             parsed["asset_name"] = asset_name
+@@ -546,4 +548,4 @@ Follow Steps 1 through 6 from your instructions and produce the JSON output."""
+         return content.strip()
+ 
+ 
+-# ══════════════════════════════════════════════════════════════════════════════
+\ No newline at end of file
++# ══════════════════════════════════════════════════════════════════════════════
+diff --git a/src/agents/risk_manager.py b/src/agents/risk_manager.py
+index ba56e18..68cb60c 100644
+--- a/src/agents/risk_manager.py
++++ b/src/agents/risk_manager.py
+@@ -1,59 +1,8 @@
+-import json
+-import os
+ from datetime import datetime, timezone, timedelta
+ from pydantic import BaseModel
+ from src.schema.models import AnalystSignal
+ 
+ 
+-# ── JSON-derived data ─────────────────────────────────────────────────────────
+-# Single source of truth for fields that live in the strategies JSON.
+-# risk_profile  : loaded per strategy — eliminates drift with operational_meta
+-# SIDEWAYS_ALLOWED: derived from regime.primary / also_valid — any strategy
+-#                   whose regime includes Sideways (and doesn't forbid it)
+-#                   is automatically exempt from the sideways veto.
+-
+-_STRATEGIES_JSON_PATH = "data/strategies/strategies_processed.json"
+-
+-
+-def _load_strategy_data(path: str) -> tuple[dict[str, str], set[str]]:
+-    """
+-    Reads strategies_processed.json and returns:
+-      risk_profiles   : {strategy_name: "Aggressive" | "Conservative"}
+-      sideways_allowed: set of strategy names valid in a Sideways regime
+-    """
+-    risk_profiles: dict[str, str] = {}
+-    sideways_allowed: set[str]    = set()
+-
+-    if not os.path.exists(path):
+-        print(f"[RiskManager] WARNING: strategies JSON not found at '{path}'. "
+-              "All profiles will default to Conservative.")
+-        return risk_profiles, sideways_allowed
+-
+-    with open(path, "r") as f:
+-        strategies: list[dict] = json.load(f)
+-
+-    for s in strategies:
+-        name    = s["metadata"]["name"]
+-        regime  = s["metadata"]["regime"]          # dict: primary / also_valid / forbidden
+-        profile = s["operational_meta"]["risk_profile"]
+-
+-        risk_profiles[name] = profile
+-
+-        primary    = regime.get("primary", "")
+-        also_valid = regime.get("also_valid", [])
+-        forbidden  = regime.get("forbidden", [])
+-
+-        # A strategy is sideways-allowed if Sideways appears in its valid regimes
+-        # AND is not explicitly forbidden (the latter is a safety guard).
+-        if "Sideways" in ([primary] + also_valid) and "Sideways" not in forbidden:
+-            sideways_allowed.add(name)
+-
+-    return risk_profiles, sideways_allowed
+-
+-
+-_RISK_PROFILES, SIDEWAYS_ALLOWED = _load_strategy_data(_STRATEGIES_JSON_PATH)
+-
+-
+ # ── Output Schema ─────────────────────────────────────────────────────────────
+ 
+ class RiskAssessment(BaseModel):
+@@ -74,16 +23,19 @@ class RiskAssessment(BaseModel):
+ STRATEGY_REGISTRY = {
+     # ── Aggressive — fixed R:R targets ───────────────────────────────────────
+     "Volatility Breakout Scalping": {
++        "profile":      "Aggressive",
+         "fixed_target": True,
+         "rsi_veto":     True,
+         "guards":       [],
+     },
+     "Bollinger Bands + RSI Extremes": {
++        "profile":      "Aggressive",
+         "fixed_target": True,
+         "rsi_veto":     False,   # RSI extremes ARE the entry signal — veto contradictory
+         "guards":       [],
+     },
+     "Bottom Bollinger Band Mean Reversion": {
++        "profile":      "Aggressive",
+         "fixed_target": True,
+         "rsi_veto":     True,
+         "guards":       [],
+@@ -91,11 +43,13 @@ STRATEGY_REGISTRY = {
+ 
+     # ── Aggressive — volatile regime ──────────────────────────────────────────
+     "ATR Expansion Breakout": {
++        "profile":      "Aggressive",
+         "fixed_target": True,
+         "rsi_veto":     True,
+         "guards":       ["atr_expanding"],
+     },
+     "Donchian Volatility Range Breach": {
++        "profile":      "Aggressive",
+         "fixed_target": True,
+         "rsi_veto":     True,
+         "guards":       ["atr_expanding"],
+@@ -103,11 +57,13 @@ STRATEGY_REGISTRY = {
+ 
+     # ── Conservative — Turtle: profits run, no fixed target ──────────────────
+     "Turtle Strategy (System 1 - 20-Day Breakout)": {
++        "profile":      "Conservative",
+         "fixed_target": False,
+         "rsi_veto":     True,
+         "guards":       [],
+     },
+     "Turtle Strategy (System 2 - 55-Day Macro Breakout)": {
++        "profile":      "Conservative",
+         "fixed_target": False,
+         "rsi_veto":     True,
+         "guards":       [],
+@@ -115,11 +71,13 @@ STRATEGY_REGISTRY = {
+ 
+     # ── Conservative — trending, explicit take-profit logic ───────────────────
+     "200 MA Macro Pullback Accumulation": {
++        "profile":      "Conservative",
+         "fixed_target": True,
+         "rsi_veto":     True,
+         "guards":       ["ema200_upsloping"],
+     },
+     "MA Twist & Convergence Continuation": {
++        "profile":      "Conservative",
+         "fixed_target": True,
+         "rsi_veto":     True,
+         "guards":       ["ma_converging"],
+@@ -127,16 +85,19 @@ STRATEGY_REGISTRY = {
+ 
+     # ── Conservative — sideways regime ────────────────────────────────────────
+     "RSI Divergence Fade": {
++        "profile":      "Conservative",
+         "fixed_target": True,
+         "rsi_veto":     False,   # RSI divergence IS the entry signal — veto contradictory
+         "guards":       [],
+     },
+     "Donchian Range Oscillation": {
++        "profile":      "Conservative",
+         "fixed_target": True,
+         "rsi_veto":     False,   # RSI overbought/oversold IS the confirmation signal
+         "guards":       [],
+     },
+     "EMA20 Mean Reversion": {
++        "profile":      "Conservative",
+         "fixed_target": True,
+         "rsi_veto":     True,
+         "guards":       [],
+@@ -144,12 +105,21 @@ STRATEGY_REGISTRY = {
+ 
+     # ── Fallback ──────────────────────────────────────────────────────────────
+     "fallback": {
++        "profile":      "Conservative",
+         "fixed_target": True,
+         "rsi_veto":     True,
+         "guards":       [],
+     },
+ }
+ 
++# ── Strategies exempt from the sideways regime veto ──────────────────────────
++# These strategies are explicitly designed for sideways/ranging conditions.
++SIDEWAYS_ALLOWED = {
++    "RSI Divergence Fade",
++    "Donchian Range Oscillation",
++    "EMA20 Mean Reversion",
++    # "Bollinger Bands + RSI Extremes",
++}
+ 
+ # ── Strategies exempt from the sentiment veto ─────────────────────────────────
+ # These strategies use extreme sentiment as a mandatory entry condition,
+@@ -208,12 +178,8 @@ class RiskManagerAgent:
+         market_data: dict,
+         sentiment_score: float,
+         current_portfolio: list,
+-        available_balance: float = None,
+     ) -> RiskAssessment:
+ 
+-        if available_balance is not None:
+-            self.total_equity = available_balance
+-
+         entry_price   = market_data['snapshot']['close']
+         atr           = market_data['volatility']['atr']
+         atr_expanding = market_data['volatility']['atr_expanding']
+@@ -225,14 +191,11 @@ class RiskManagerAgent:
+         ma_converging = market_data['ema_multi']['converging']
+         ma_stack      = market_data['ema_multi']['stack_order']
+ 
+-        # After
+         strategy_meta = STRATEGY_REGISTRY.get(
+             analyst_signal.strategy_used,
+             STRATEGY_REGISTRY["fallback"]
+         )
+-        # profile is sourced from the JSON to keep it in sync with operational_meta.
+-        # Falls back to "Conservative" for unknown strategies or if JSON is unavailable.
+-        profile      = _RISK_PROFILES.get(analyst_signal.strategy_used, "Conservative")
++        profile      = strategy_meta["profile"]
+         fixed_target = strategy_meta["fixed_target"]
+         rsi_veto     = strategy_meta["rsi_veto"]
+         guards       = strategy_meta["guards"]
+diff --git a/src/core/knowledge_base_lms.py b/src/core/knowledge_base_lms.py
+index ba2f718..98bda57 100644
+--- a/src/core/knowledge_base_lms.py
++++ b/src/core/knowledge_base_lms.py
+@@ -1,68 +1,13 @@
+ import json
+ import os
+-import shutil
+ from langchain_core.documents import Document
+ from langchain_openai import OpenAIEmbeddings
+ from langchain_chroma import Chroma
+ 
+-
+-# ── Prompt-payload builder ────────────────────────────────────────────────────
+-# Separate function so it can be unit-tested independently of ChromaDB.
+-# This is what the LLM sees — concise, structured, token-efficient.
+-#
+-# Excluded from prompt payload (lives in embedding text only):
+-#   theory.principle / market_inefficiency  → prose, aids retrieval not evaluation
+-#   theory.synergy_markers                  → human labels, LLM uses structured fields
+-#   exit_logic.take_profit                  → informational, levels set by RiskManager
+-#   operational_meta.dependency_indicators  → redundant with structured conditions
+-
+-def _build_prompt_payload(strategy: dict) -> dict:
+-    m    = strategy["metadata"]
+-    mech = strategy["mechanics"]
+-    gate = mech["logic_gate"]
+-    op   = strategy["operational_meta"]
+-
+-    return {
+-        "name":                          m["name"],
+-        "regime":                        m["regime"],      # full {primary, also_valid, forbidden} object
+-        "risk_profile":                  op["risk_profile"],
+-        "entry_primary":                 gate["entry_primary"],
+-        "entry_primary_structured":      gate["entry_primary_structured"],
+-        "entry_confirmation":            gate["entry_confirmation"],
+-        "entry_confirmation_structured": gate["entry_confirmation_structured"],
+-        "conflicts_structured":          gate["conflicts_structured"],
+-        "exit_condition":                mech["exit_logic"]["exit_condition"],
+-        "exit_condition_structured":     mech["exit_logic"]["exit_condition_structured"],
+-    }
+-
+-
+ class TradingKnowledgeBase:
+-    """
+-    Vector-backed strategy library using ChromaDB + nomic-embed-text (via LM Studio).
+-
+-    Design decisions
+-    ────────────────
+-    Embedding text    — rich prose from theory + human-readable entry/exit descriptions.
+-                        Semantic richness here drives retrieval quality.
+-    ChromaDB metadata — stores flat regime strings for $or/$contains filtering,
+-                        plus a lean prompt_payload JSON for injection. The full
+-                        strategy JSON is NOT stored in metadata to avoid token bloat.
+-    Regime filter     — multi-value: matches primary AND also_valid regimes. Strategies
+-                        in the forbidden list are removed via post-filter (ChromaDB
+-                        does not support "not contains" on string metadata).
+-    Score threshold   — applied as both a fetch-time inflation (fetch_k = k*3) and a
+-                        post-filter, so callers reliably get up to k results back.
+-    Prompt payload    — stripped-down dict; excludes all prose the LLM does not evaluate.
+-    """
+-
+-    def __init__(
+-        self,
+-        json_path: str = "data/strategies/strategies_processed.json",
+-        db_dir: str    = "database/chroma_db",
+-    ):
++    def __init__(self, json_path="data/strategies/strategies_processed.json", db_dir="database/chroma_db"):
+         self.json_path = json_path
+-        self.db_dir    = db_dir
+-
++        self.db_dir = db_dir
+         self.embeddings = OpenAIEmbeddings(
+             base_url="http://localhost:1234/v1",
+             api_key="lm-studio",
+@@ -75,90 +20,53 @@ class TradingKnowledgeBase:
+             print("--- Loading existing Knowledge Base ---")
+             self.vector_db = Chroma(
+                 persist_directory=self.db_dir,
+-                embedding_function=self.embeddings,
++                embedding_function=self.embeddings
+             )
+         else:
+             print("--- Creating new Knowledge Base ---")
+             self._create_db()
+ 
+-    # ── Indexing ──────────────────────────────────────────────────────────────
+-
+     def _strategy_to_document(self, strategy: dict) -> Document:
+         """
+-        Build the ChromaDB Document for one strategy.
+-
+-        page_content  → rich prose text, optimised for semantic embedding.
+-        metadata      → flat scalars used for filtering + lean prompt_payload JSON.
+-
+-        ChromaDB metadata only supports scalar types (str, int, float, bool).
+-        The regime object's lists are serialized as comma-separated strings so
+-        ChromaDB's $contains operator can match substrings for also_valid lookups.
++        Flatten each strategy object into a single rich text block for embedding.
++        Metadata is stored separately for filtering.
+         """
+-        m    = strategy["metadata"]
+-        t    = strategy["theory"]
++        m = strategy["metadata"]
++        t = strategy["theory"]
+         mech = strategy["mechanics"]
+-        op   = strategy["operational_meta"]
+-        gate = mech["logic_gate"]
++        op = strategy["operational_meta"]
+ 
+-        regime: dict = m["regime"]   # {primary, also_valid, forbidden}
+-
+-        # ── Regime description for embedding text ─────────────────────────────
+-        also_valid_str = (
+-            f" (also valid in: {', '.join(regime['also_valid'])})"
+-            if regime.get("also_valid")
+-            else ""
+-        )
+-        forbidden_str = (
+-            f" (forbidden in: {', '.join(regime['forbidden'])})"
+-            if regime.get("forbidden")
+-            else ""
+-        )
+-
+-        # Filter nulls before joining — some structured conditions are null
+-        # for conditions that cannot be mechanically expressed
+-        entry_primary_text = " ".join(
+-            x for x in gate["entry_primary"] if x is not None
+-        )
+-        entry_confirm_text = " ".join(
+-            x for x in gate["entry_confirmation"] if x is not None
+-        )
+-
+-        # ── Embedding text ────────────────────────────────────────────────────
++        # Build a semantically rich text block — this is what gets embedded
+         text = f"""
+-Strategy: {m['name']}
+-Market Regime: {regime['primary']}{also_valid_str}{forbidden_str}
++        Strategy: {m['name']}
++        Market Regime: {m['regime']}
+ 
+-Principle: {t['principle']}
++        Principle: {t['principle']}
+ 
+-Market Inefficiency Exploited: {t['market_inefficiency']}
++        Market Inefficiency Exploited: {t['market_inefficiency']}
+ 
+-Works well with: {', '.join(t['synergy_markers']['works_well_with'])}
+-Conflicts with: {', '.join(t['synergy_markers']['conflicts_with'])}
++        Works well with: {', '.join(t['synergy_markers']['works_well_with'])}
++        Conflicts with: {', '.join(t['synergy_markers']['conflicts_with'])}
+ 
+-Entry Conditions: {entry_primary_text}
+-Confirmation Signals: {entry_confirm_text}
++        Entry Conditions: {' '.join(mech['logic_gate']['entry_primary'])}
++        Confirmation Signals: {' '.join(mech['logic_gate']['entry_confirmation'])}
+ 
+-Take Profit: {mech['exit_logic']['take_profit']}
+-Stop Loss / Exit: {mech['exit_logic']['exit_condition']}
++        Take Profit: {mech['exit_logic']['take_profit']}
++        Stop Loss / Exit: {mech['exit_logic']['exit_condition']}
+ 
+-Risk Profile: {op['risk_profile']}
+-Required Indicators: {', '.join(op['dependency_indicators'])}
++        Risk Profile: {op['risk_profile']}
++        Required Indicators: {', '.join(op['dependency_indicators'])}
+         """.strip()
+ 
+-        # ── ChromaDB metadata ─────────────────────────────────────────────────
+-        also_valid_csv = ",".join(regime.get("also_valid", []))
+-        forbidden_csv  = ",".join(regime.get("forbidden", []))
+-
+         return Document(
+             page_content=text,
+             metadata={
+-                "name":              m["name"],
+-                "regime_primary":    regime["primary"],
+-                "regime_also_valid": also_valid_csv,   # e.g. "Trending,Volatile" or ""
+-                "regime_forbidden":  forbidden_csv,    # e.g. "Sideways" or ""
+-                "risk_profile":      op["risk_profile"],
+-                "prompt_payload":    json.dumps(_build_prompt_payload(strategy)),
+-            },
++                "name": m["name"],
++                "regime": m["regime"].split("/")[0].strip(),
++                "risk_profile": op["risk_profile"],
++                # Store full strategy as JSON string for retrieval
++                "full_json": json.dumps(strategy)
++            }
+         )
+ 
+     def _create_db(self):
+@@ -170,130 +78,26 @@ Required Indicators: {', '.join(op['dependency_indicators'])}
+         self.vector_db = Chroma.from_documents(
+             documents=documents,
+             embedding=self.embeddings,
+-            persist_directory=self.db_dir,
++            persist_directory=self.db_dir
+         )
+-        print(f"--- Indexed {len(documents)} strategies into Knowledge Base ---")
+-
+-    def rebuild(self):
+-        """
+-        Force a full rebuild of the ChromaDB store from the source JSON.
+-        Call this after updating Strategies_v2.json.
+-        """
+-        if os.path.exists(self.db_dir):
+-            shutil.rmtree(self.db_dir)
+-            print(f"--- Cleared existing KB at {self.db_dir} ---")
+-        self._create_db()
+-
+-    # ── Retrieval ─────────────────────────────────────────────────────────────
+-
+-    def _build_regime_filter(self, regime: str | None) -> dict | None:
+-        """
+-        Build a ChromaDB $or filter that matches strategies where:
+-          - regime_primary == regime, OR
+-          - regime_also_valid contains regime (substring match on CSV string)
+-
+-        Returns None when regime is None (undetected market structure).
+-        The caller will then run an unfiltered search and rely solely on
+-        the score threshold and forbidden post-filter.
+-        """
+-        if regime is None:
+-            return None
+-
+-        return {
+-            "$or": [
+-                {"regime_primary":    {"$eq": regime}},
+-                {"regime_also_valid": {"$contains": regime}},
+-            ]
+-        }
+-
+-    def _is_forbidden(self, doc_metadata: dict, regime: str | None) -> bool:
+-        """
+-        Return True if the current regime appears in this strategy's forbidden list.
+-        Post-filter only — ChromaDB cannot do "not contains" on string metadata.
+-        """
+-        if not regime:
+-            return False
+-        forbidden_csv = doc_metadata.get("regime_forbidden", "")
+-        if not forbidden_csv:
+-            return False
+-        forbidden = [r.strip() for r in forbidden_csv.split(",")]
+-        return regime in forbidden
+-
+-    def get_relevant_strategies(
+-        self,
+-        query: str,
+-        k: int = 2,
+-        score_threshold: float = 0.40,
+-        regime_filter: str | None = None,
+-    ) -> list[dict]:
+-        """
+-        Retrieve the top-k strategies most semantically similar to query,
+-        filtered by regime compatibility and score threshold.
+-
+-        Parameters
+-        ----------
+-        query           : Market state description built by _build_query()
+-        k               : Maximum strategies to return after all filtering
+-        score_threshold : Minimum relevance score (0.0–1.0)
+-        regime_filter   : Current regime string or None
+-
+-        Returns
+-        -------
+-        List of lean prompt payload dicts — not full strategy JSON.
+-        Empty list if no results pass the threshold/regime filters.
+-        """
+-        # Inflate fetch count to absorb expected post-filter losses
+-        # (forbidden strategies + below-threshold results).
+-        fetch_k = k * 3
+-
+-        chroma_filter = self._build_regime_filter(regime_filter)
+-
+-        try:
+-            if chroma_filter:
+-                results = self.vector_db.similarity_search_with_relevance_scores(
+-                    query, k=fetch_k, filter=chroma_filter
+-                )
+-            else:
+-                # No regime detected — unfiltered search, forbidden post-filter still runs
+-                results = self.vector_db.similarity_search_with_relevance_scores(
+-                    query, k=fetch_k
+-                )
+-        except Exception as e:
+-            print(f"[KB] ChromaDB search failed: {e}. Returning empty.")
+-            return []
+-
+-        # ── Debug log ─────────────────────────────────────────────────────────
+-        print("--- KB RETRIEVAL ---")
++        print(f"--- Indexed {len(documents)} strategies ---")
++
++    def get_relevant_strategies(self, query: str, k=3, score_threshold=0.3, regime_filter: str = None) -> list[dict]:
++        search_kwargs = {"k": k}  # Remove threshold temporarily
++        
++        if regime_filter:
++            search_kwargs["filter"] = {"regime": regime_filter}
++
++        results = self.vector_db.similarity_search_with_relevance_scores(query, **search_kwargs)
++        
++        # DEBUG — remove after diagnosis
++        print("--- KB DEBUG SCORES ---")
+         for doc, score in results:
+-            meta           = doc.metadata
+-            forbidden_flag = " ⛔ FORBIDDEN" if self._is_forbidden(meta, regime_filter) else ""
+-            pass_flag      = "✓" if score >= score_threshold else "✗"
+-            print(
+-                f"  [{pass_flag}] {meta['name']}"
+-                f" | primary={meta['regime_primary']}"
+-                f" | also_valid=[{meta['regime_also_valid'] or 'none'}]"
+-                f" | score={score:.4f}"
+-                f"{forbidden_flag}"
+-            )
+-        print("--------------------")
+-
+-        # ── Post-filters ──────────────────────────────────────────────────────
+-        filtered = [
+-            (doc, score)
+-            for doc, score in results
+-            if score >= score_threshold
+-            and not self._is_forbidden(doc.metadata, regime_filter)
+-        ]
++            print(f"  {doc.metadata['name']} [{doc.metadata['regime']}] → score: {score:.4f}")
++        print("-----------------------")
+ 
+-        if not filtered:
+-            print(
+-                f"[KB] No strategies passed filters "
+-                f"(regime={regime_filter}, threshold={score_threshold})."
+-            )
++        results = [(doc, score) for doc, score in results if score >= score_threshold]
++        if not results:
+             return []
+ 
+-        # Sort descending by score, cap at k
+-        filtered.sort(key=lambda x: x[1], reverse=True)
+-        top = filtered[:k]
+-
+-        return [json.loads(doc.metadata["prompt_payload"]) for doc, _ in top]
+\ No newline at end of file
++        return [json.loads(doc.metadata["full_json"]) for doc, score in results]
+\ No newline at end of file

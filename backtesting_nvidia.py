@@ -155,6 +155,10 @@ class BacktestEngine:
         # Variable lookup
         if isinstance(node, ast.Name):
             var_id = node.id.lower()
+            if var_id == 'true':
+                return True
+            if var_id == 'false':
+                return False
             if var_id in variables:
                 return variables[var_id]
             if node.id in variables:
@@ -246,6 +250,16 @@ class BacktestEngine:
             locals_dict = {col: row[col] for col in df.columns}
             locals_dict['price'] = price
             
+            # Add donchian levels required by prompts
+            locals_dict['high_10'] = df['high'].iloc[i-9:i+1].max()
+            locals_dict['low_10'] = df['low'].iloc[i-9:i+1].min()
+            locals_dict['high_20'] = df['high'].iloc[i-19:i+1].max()
+            locals_dict['low_20'] = df['low'].iloc[i-19:i+1].min()
+            locals_dict['high_50'] = df['high'].iloc[i-49:i+1].max()
+            locals_dict['low_50'] = df['low'].iloc[i-49:i+1].min()
+            locals_dict['high_55'] = df['high'].iloc[i-54:i+1].max()
+            locals_dict['low_55'] = df['low'].iloc[i-54:i+1].min()
+            
             # Make case-insensitive by adding uppercase versions of all keys
             locals_dict.update({k.upper(): v for k, v in locals_dict.items() if isinstance(k, str)})
             
@@ -321,7 +335,7 @@ class BacktestEngine:
             # print("4 step")
             if verdict.signal == "BUY":
                 # We only take ONE position at a time for simplicity in this backtest
-                if len(self.portfolio) >= 0:
+                if len(self.portfolio) == 0:
                     pos_size = verdict.position_size
                     if pos_size > self.balance:
                         pos_size = self.balance # Constrain to balance
