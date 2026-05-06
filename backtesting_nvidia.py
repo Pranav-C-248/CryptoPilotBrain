@@ -16,14 +16,14 @@ import html
 project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, project_root)
 
-from src.core.knowledge_base_lms import TradingKnowledgeBase
-from src.agents.analyst_lms import AnalystAgent
+from src.core.knowledge_base_nvidia import TradingKnowledgeBase
+from src.agents.analyst_nvidia import AnalystAgent
 from src.tools.indicators import MarketDataProcessor
 from src.agents.risk_manager import RiskManagerAgent
 from src.schema.models import AnalystSignal
 from src.agents.risk_manager import RiskAssessment
 
-CACHE_FILE = os.path.join(project_root, "tests", "llm_cache.json")
+CACHE_FILE = os.path.join(project_root, "tests", "llm_cache_nvidia.json")
 os.makedirs(os.path.join(project_root, "tests", "logs"), exist_ok=True)
 
 class BacktestEngine:

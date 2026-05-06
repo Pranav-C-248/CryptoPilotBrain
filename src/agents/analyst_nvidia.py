@@ -9,7 +9,7 @@ import requests
 import re
 from langchain_openai import ChatOpenAI
 from src.schema.models import AnalystSignal
-from src.core.knowledge_base_lms import TradingKnowledgeBase
+from src.core.knowledge_base_nvidia import TradingKnowledgeBase
 
 
 class AnalystAgent:
@@ -20,11 +20,14 @@ class AnalystAgent:
         config = dotenv_values(".env")
         self.client = genai.Client(api_key=config["gemini_key"])
         self.model_name = "gemini-2.5-flash"
-        self.lmstudio_llm = ChatOpenAI(
-            base_url="http://localhost:1234/v1",
-            api_key="lm-studio",
-            model="gemma4:e2b",
-            temperature=0,
+        from langchain_openai import ChatOpenAI
+        self.nvidia_llm = ChatOpenAI(
+            base_url="https://integrate.api.nvidia.com/v1",
+            api_key="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",
+            model="deepseek-ai/deepseek-v4-pro",
+            temperature=1,
+            top_p=0.95,
+            max_tokens=8192,
         )
 
     def _detect_regime(self, market_data: dict) -> str:
@@ -511,26 +514,26 @@ Follow Steps 1 through 6 from your instructions and produce the JSON output."""
             )
             parsed = json.loads(response.text)
         except Exception as e:
-            print(f"Gemini API failed: {e}. Falling back to local LM Studio (gemma4:e2b)...")
+            print(f"Gemini API failed: {e}. Falling back to NVIDIA (deepseek-v4-pro)...")
             try:
                 
                 print(system_msg,file=open('system.txt','a'),)
                 print(user_msg,file=open('user.txt','a'))
-                response = self.lmstudio_llm.invoke([("system", system_msg), ("human", user_msg)])
+                response = self.nvidia_llm.invoke([("system", system_msg), ("human", user_msg)])
                 
                 try:
                     usage = getattr(response, "usage_metadata", None) or response.response_metadata.get("token_usage", {})
                     prompt_tokens = usage.get('input_tokens', usage.get('prompt_tokens', '?'))
                     completion_tokens = usage.get('output_tokens', usage.get('completion_tokens', '?'))
                     total_tokens = usage.get('total_tokens', '?')
-                    print(f"[LM Studio Usage] Prompt Context: {prompt_tokens} tokens | Generated: {completion_tokens} tokens | Total: {total_tokens} tokens")
+                    print(f"[NVIDIA Usage] Prompt Context: {prompt_tokens} tokens | Generated: {completion_tokens} tokens | Total: {total_tokens} tokens")
                 except Exception as e_usage:
-                    print(f"[LM Studio Usage] Could not parse usage metadata: {e_usage}")
+                    print(f"[NVIDIA Usage] Could not parse usage metadata: {e_usage}")
 
                 clean_content = self._clean_json_response(response.content)
                 parsed = json.loads(clean_content)
-            except Exception as lms_e:
-                print(f"LM Studio fallback also failed: {lms_e}")
+            except Exception as nvidia_e:
+                print(f"NVIDIA fallback also failed: {nvidia_e}")
                 raise e # Raise the original exception if fallback fails
 
         try:
