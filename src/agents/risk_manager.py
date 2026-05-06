@@ -1,6 +1,57 @@
+import json
+import os
 from datetime import datetime, timezone, timedelta
 from pydantic import BaseModel
 from src.schema.models import AnalystSignal
+
+
+# ── JSON-derived data ─────────────────────────────────────────────────────────
+# Single source of truth for fields that live in the strategies JSON.
+# risk_profile  : loaded per strategy — eliminates drift with operational_meta
+# SIDEWAYS_ALLOWED: derived from regime.primary / also_valid — any strategy
+#                   whose regime includes Sideways (and doesn't forbid it)
+#                   is automatically exempt from the sideways veto.
+
+_STRATEGIES_JSON_PATH = "data/strategies/strategies_processed.json"
+
+
+def _load_strategy_data(path: str) -> tuple[dict[str, str], set[str]]:
+    """
+    Reads strategies_processed.json and returns:
+      risk_profiles   : {strategy_name: "Aggressive" | "Conservative"}
+      sideways_allowed: set of strategy names valid in a Sideways regime
+    """
+    risk_profiles: dict[str, str] = {}
+    sideways_allowed: set[str]    = set()
+
+    if not os.path.exists(path):
+        print(f"[RiskManager] WARNING: strategies JSON not found at '{path}'. "
+              "All profiles will default to Conservative.")
+        return risk_profiles, sideways_allowed
+
+    with open(path, "r") as f:
+        strategies: list[dict] = json.load(f)
+
+    for s in strategies:
+        name    = s["metadata"]["name"]
+        regime  = s["metadata"]["regime"]          # dict: primary / also_valid / forbidden
+        profile = s["operational_meta"]["risk_profile"]
+
+        risk_profiles[name] = profile
+
+        primary    = regime.get("primary", "")
+        also_valid = regime.get("also_valid", [])
+        forbidden  = regime.get("forbidden", [])
+
+        # A strategy is sideways-allowed if Sideways appears in its valid regimes
+        # AND is not explicitly forbidden (the latter is a safety guard).
+        if "Sideways" in ([primary] + also_valid) and "Sideways" not in forbidden:
+            sideways_allowed.add(name)
+
+    return risk_profiles, sideways_allowed
+
+
+_RISK_PROFILES, SIDEWAYS_ALLOWED = _load_strategy_data(_STRATEGIES_JSON_PATH)
 
 
 # ── Output Schema ─────────────────────────────────────────────────────────────
@@ -23,19 +74,16 @@ class RiskAssessment(BaseModel):
 STRATEGY_REGISTRY = {
     # ── Aggressive — fixed R:R targets ───────────────────────────────────────
     "Volatility Breakout Scalping": {
-        "profile":      "Aggressive",
         "fixed_target": True,
         "rsi_veto":     True,
         "guards":       [],
     },
     "Bollinger Bands + RSI Extremes": {
-        "profile":      "Aggressive",
         "fixed_target": True,
         "rsi_veto":     False,   # RSI extremes ARE the entry signal — veto contradictory
         "guards":       [],
     },
     "Bottom Bollinger Band Mean Reversion": {
-        "profile":      "Aggressive",
         "fixed_target": True,
         "rsi_veto":     True,
         "guards":       [],
@@ -43,13 +91,11 @@ STRATEGY_REGISTRY = {
 
     # ── Aggressive — volatile regime ──────────────────────────────────────────
     "ATR Expansion Breakout": {
-        "profile":      "Aggressive",
         "fixed_target": True,
         "rsi_veto":     True,
         "guards":       ["atr_expanding"],
     },
     "Donchian Volatility Range Breach": {
-        "profile":      "Aggressive",
         "fixed_target": True,
         "rsi_veto":     True,
         "guards":       ["atr_expanding"],
@@ -57,13 +103,11 @@ STRATEGY_REGISTRY = {
 
     # ── Conservative — Turtle: profits run, no fixed target ──────────────────
     "Turtle Strategy (System 1 - 20-Day Breakout)": {
-        "profile":      "Conservative",
         "fixed_target": False,
         "rsi_veto":     True,
         "guards":       [],
     },
     "Turtle Strategy (System 2 - 55-Day Macro Breakout)": {
-        "profile":      "Conservative",
         "fixed_target": False,
         "rsi_veto":     True,
         "guards":       [],
@@ -71,13 +115,11 @@ STRATEGY_REGISTRY = {
 
     # ── Conservative — trending, explicit take-profit logic ───────────────────
     "200 MA Macro Pullback Accumulation": {
-        "profile":      "Conservative",
         "fixed_target": True,
         "rsi_veto":     True,
         "guards":       ["ema200_upsloping"],
     },
     "MA Twist & Convergence Continuation": {
-        "profile":      "Conservative",
         "fixed_target": True,
         "rsi_veto":     True,
         "guards":       ["ma_converging"],
@@ -85,19 +127,16 @@ STRATEGY_REGISTRY = {
 
     # ── Conservative — sideways regime ────────────────────────────────────────
     "RSI Divergence Fade": {
-        "profile":      "Conservative",
         "fixed_target": True,
         "rsi_veto":     False,   # RSI divergence IS the entry signal — veto contradictory
         "guards":       [],
     },
     "Donchian Range Oscillation": {
-        "profile":      "Conservative",
         "fixed_target": True,
         "rsi_veto":     False,   # RSI overbought/oversold IS the confirmation signal
         "guards":       [],
     },
     "EMA20 Mean Reversion": {
-        "profile":      "Conservative",
         "fixed_target": True,
         "rsi_veto":     True,
         "guards":       [],
@@ -105,21 +144,12 @@ STRATEGY_REGISTRY = {
 
     # ── Fallback ──────────────────────────────────────────────────────────────
     "fallback": {
-        "profile":      "Conservative",
         "fixed_target": True,
         "rsi_veto":     True,
         "guards":       [],
     },
 }
 
-# ── Strategies exempt from the sideways regime veto ──────────────────────────
-# These strategies are explicitly designed for sideways/ranging conditions.
-SIDEWAYS_ALLOWED = {
-    "RSI Divergence Fade",
-    "Donchian Range Oscillation",
-    "EMA20 Mean Reversion",
-    # "Bollinger Bands + RSI Extremes",
-}
 
 # ── Strategies exempt from the sentiment veto ─────────────────────────────────
 # These strategies use extreme sentiment as a mandatory entry condition,
@@ -178,7 +208,11 @@ class RiskManagerAgent:
         market_data: dict,
         sentiment_score: float,
         current_portfolio: list,
+        available_balance: float = None,
     ) -> RiskAssessment:
+
+        if available_balance is not None:
+            self.total_equity = available_balance
 
         entry_price   = market_data['snapshot']['close']
         atr           = market_data['volatility']['atr']
@@ -191,11 +225,14 @@ class RiskManagerAgent:
         ma_converging = market_data['ema_multi']['converging']
         ma_stack      = market_data['ema_multi']['stack_order']
 
+        # After
         strategy_meta = STRATEGY_REGISTRY.get(
             analyst_signal.strategy_used,
             STRATEGY_REGISTRY["fallback"]
         )
-        profile      = strategy_meta["profile"]
+        # profile is sourced from the JSON to keep it in sync with operational_meta.
+        # Falls back to "Conservative" for unknown strategies or if JSON is unavailable.
+        profile      = _RISK_PROFILES.get(analyst_signal.strategy_used, "Conservative")
         fixed_target = strategy_meta["fixed_target"]
         rsi_veto     = strategy_meta["rsi_veto"]
         guards       = strategy_meta["guards"]

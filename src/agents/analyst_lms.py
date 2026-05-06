@@ -1,12 +1,9 @@
 import json
+import re
 from datetime import datetime, timezone, timedelta
 from dotenv import dotenv_values
 from google import genai
 from google.genai import types
-import pandas as pd
-import numpy as np
-import requests
-import re
 from langchain_openai import ChatOpenAI
 from src.schema.models import AnalystSignal
 from src.core.knowledge_base_lms import TradingKnowledgeBase
@@ -297,8 +294,8 @@ class AnalystAgent:
         bands   = market_data.get('bands', {})
         bands40 = market_data.get('bands40', {})
         adx     = market_data.get('adx', {})
-        vol     = market_data.get('volatility', {})     
-        
+        vol     = market_data.get('volatility', {})
+
         # ── Prompts ───────────────────────────────────────────────────────────
         system_msg = """<role>You are an Institutional Grade Quantitative Analyst.</role>
 
@@ -314,16 +311,27 @@ State the regime explicitly: Trending, Volatile, or Sideways.
 <step n="2" name="STRATEGY_SELECTION">
 Review each strategy candidate from the strategy_candidates section.
 For each one ask:
-  a) Does its regime tag match the current regime?
+  a) REGIME CHECK — the strategy's regime field has three sub-fields:
+       - primary     : the regime this strategy is designed for
+       - also_valid  : additional regimes where it is still valid
+       - forbidden   : regimes where it must NEVER be used
+     The strategy is eligible if the current regime matches primary OR appears in also_valid.
+     If the current regime appears in forbidden, DISCARD the strategy immediately.
   b) Does the current market satisfy its entry_primary condition?
-  c) Does anything in its conflicts_with list describe the current market? If yes, DISCARD it.
+  c) CONFLICT CHECK — evaluate each expression in conflicts_structured against the current
+     packet values (e.g. "atr_expanding == false" means check the atr_expanding field directly).
+     If ANY expression evaluates to True for the current market, DISCARD the strategy.
 Select the single best-fit strategy. If none fit cleanly, write "fallback".
 </step>
 
 <step n="3" name="CONFLUENCE_CHECK">
 List every entry_confirmation condition from the chosen strategy.
-For each condition state explicitly: does the current packet data satisfy it? YES or NO.
-Count satisfied conditions vs total. Be precise — cite actual values from the packet.
+For each condition:
+  - If entry_confirmation_structured is not null for that condition, evaluate the structured
+    expression directly against the current packet values and state YES or NO with the value cited.
+  - If entry_confirmation_structured is null for that condition, evaluate the prose description
+    using the packet data as best you can and state YES or NO with your reasoning.
+Count satisfied conditions vs total. Be precise — cite actual numeric values from the packet.
 </step>
 
 <step n="4" name="SIGNAL_DECISION">
@@ -343,7 +351,8 @@ You MUST use ONLY the following variable names (these are the exact column names
 price, open, high, low, close, volume,
 rsi, rsi5, ema9, ema20, ema50, ema200,
 bb_upper, bb_lower, bb_mid, bb40_upper, bb40_lower,
-adx, atr, atr_avg_5, atr_expanding
+adx, atr, atr_avg_5, atr_expanding,
+high_10, low_10, high_20, low_20, high_50, low_50, high_55, low_55
 </available_variables>
 
 To reference the previous candle's value, the backtester does NOT have _prev columns.
@@ -497,6 +506,7 @@ Do NOT include asset_name or valid_till — they are injected automatically.
 </market_data>
 
 Follow Steps 1 through 6 from your instructions and produce the JSON output."""
+
         # ── LLM call ──────────────────────────────────────────────────────────
         try:
             # temporarily disabled for testing purposes
@@ -519,7 +529,7 @@ Follow Steps 1 through 6 from your instructions and produce the JSON output."""
                 parsed = json.loads(clean_content)
             except Exception as lms_e:
                 print(f"LM Studio fallback also failed: {lms_e}")
-                raise e # Raise the original exception if fallback fails
+                raise e  # intentionally preserved per request
 
         try:
             parsed["asset_name"] = asset_name
