@@ -2,8 +2,8 @@ import json
 import os
 import shutil
 from langchain_core.documents import Document
-from langchain_openai import OpenAIEmbeddings
 from langchain_chroma import Chroma
+from src.core.llm_factory import LLMFactory
 
 
 # ── Prompt-payload builder ────────────────────────────────────────────────────
@@ -63,12 +63,7 @@ class TradingKnowledgeBase:
         self.json_path = json_path
         self.db_dir    = db_dir
 
-        self.embeddings = OpenAIEmbeddings(
-            base_url="http://localhost:1234/v1",
-            api_key="lm-studio",
-            model="nomic-embed-text",
-            check_embedding_ctx_length=False,
-        )
+        self.embeddings = LLMFactory.get_embeddings()
         self.vector_db = None
 
         if os.path.exists(self.db_dir) and os.listdir(self.db_dir):

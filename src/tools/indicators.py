@@ -75,6 +75,12 @@ class MarketDataProcessor:
         df['atr'] = AverageTrueRange(high=df['high'], low=df['low'], close=df['close'], window=14).average_true_range()
         df['atr_avg_5'] = df['atr'].rolling(5).mean().shift(1)
         df['atr_expanding'] = df['atr'] > df['atr_avg_5']
+        
+        # ── Volume Spikes ───────────────────────────────────────────────────────
+        vol_avg_50 = df['volume'].rolling(50).mean().shift(1)
+        vol_avg_20 = df['volume'].rolling(20).mean().shift(1)
+        df['is_spike'] = df['volume'] > (vol_avg_50 * 1.5)
+        df['is_capitulation_spike'] = df['volume'] > (vol_avg_20 * 2.0)
 
         return df
 

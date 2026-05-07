@@ -2,11 +2,9 @@ import json
 import re
 from datetime import datetime, timezone, timedelta
 from dotenv import dotenv_values
-from google import genai
-from google.genai import types
-from langchain_openai import ChatOpenAI
 from src.schema.models import AnalystSignal
 from src.core.knowledge_base_lms import TradingKnowledgeBase
+from src.core.llm_factory import LLMFactory
 
 
 class AnalystAgent:
@@ -14,15 +12,7 @@ class AnalystAgent:
         self.kb = knowledge_base
         self.timeframe_hours = timeframe_hours
 
-        config = dotenv_values(".env")
-        self.client = genai.Client(api_key=config["gemini_key"])
-        self.model_name = "gemini-2.5-flash"
-        self.lmstudio_llm = ChatOpenAI(
-            base_url="http://localhost:1234/v1",
-            api_key="lm-studio",
-            model="gemma4:e2b",
-            temperature=0,
-        )
+        self.llm = LLMFactory.get_llm()
 
     def _detect_regime(self, market_data: dict) -> str:
         structure = market_data['trends']['market_structure'].lower()
@@ -352,7 +342,8 @@ price, open, high, low, close, volume,
 rsi, rsi5, ema9, ema20, ema50, ema200,
 bb_upper, bb_lower, bb_mid, bb40_upper, bb40_lower,
 adx, atr, atr_avg_5, atr_expanding,
-high_10, low_10, high_20, low_20, high_50, low_50, high_55, low_55
+high_10, low_10, high_20, low_20, high_50, low_50, high_55, low_55,
+is_spike, is_capitulation_spike
 </available_variables>
 
 To reference the previous candle's value, the backtester does NOT have _prev columns.
@@ -508,28 +499,18 @@ Do NOT include asset_name or valid_till — they are injected automatically.
 Follow Steps 1 through 6 from your instructions and produce the JSON output."""
 
         # ── LLM call ──────────────────────────────────────────────────────────
+        clean_content = ""
         try:
-            # temporarily disabled for testing purposes
-            raise Exception("Gemini API Disabled")
-            response = self.client.models.generate_content(
-                model=self.model_name,
-                contents=user_msg,
-                config=types.GenerateContentConfig(
-                    system_instruction=system_msg,
-                    temperature=0,
-                    response_mime_type="application/json"
-                )
-            )
-            parsed = json.loads(response.text)
+            response = self.llm.invoke([("system", system_msg), ("human", user_msg)])
+            clean_content = self._clean_json_response(response.content)
+            parsed = json.loads(clean_content)
         except Exception as e:
-            print(f"Gemini API failed: {e}. Falling back to local LM Studio (gemma4:e2b)...")
-            try:
-                response = self.lmstudio_llm.invoke([("system", system_msg), ("human", user_msg)])
-                clean_content = self._clean_json_response(response.content)
-                parsed = json.loads(clean_content)
-            except Exception as lms_e:
-                print(f"LM Studio fallback also failed: {lms_e}")
-                raise e  # intentionally preserved per request
+            print(f"LLM API failed: {e}")
+            if clean_content:
+                print(f"--- RAW LLM OUTPUT ---")
+                print(clean_content)
+                print(f"----------------------")
+            raise e
 
         try:
             parsed["asset_name"] = asset_name
@@ -541,9 +522,11 @@ Follow Steps 1 through 6 from your instructions and produce the JSON output."""
 
     def _clean_json_response(self, content: str) -> str:
         match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", content)
-        if match:
-            return match.group(1)
-        return content.strip()
+        cleaned = match.group(1) if match else content.strip()
+        # Auto-fix common invalid escapes in JSON (e.g., \$ or \w)
+        # Replace a backslash followed by any character that is NOT a valid JSON escape character
+        cleaned = re.sub(r'\\([^"\\/bfnrtu])', r'\\\\\1', cleaned)
+        return cleaned
 
 
 # ══════════════════════════════════════════════════════════════════════════════

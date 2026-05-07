@@ -3,6 +3,8 @@ import sys
 import ast
 import time
 import traceback
+import html
+import re
 from datetime import datetime, timezone
 
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
@@ -27,6 +29,10 @@ class PaperTradingEngine:
             # We assume risk_assessment has entry_condition and exit_condition
             # Currently RiskAssessment (from schema) doesn't have these, but the custom one in agents.risk_manager does.
             # We will use getattr to safely get them or default to something basic.
+            from src.core.config_manager import ConfigManager
+            settings = ConfigManager.load_settings()
+            auto_approve = settings.get("auto_approve_trades", False)
+            
             qt = QueuedTrade(
                 asset_name=asset_name,
                 signal=signal,
@@ -36,7 +42,7 @@ class PaperTradingEngine:
                 stop_loss=risk_assessment.stop_loss if hasattr(risk_assessment, 'stop_loss') else risk_assessment.stop_loss_price,
                 position_size=risk_assessment.position_size if hasattr(risk_assessment, 'position_size') else risk_assessment.final_position_size,
                 timeframe=getattr(risk_assessment, 'timeframe', '4h'),
-                status="PENDING_APPROVAL"
+                status="UNENTERED" if auto_approve else "PENDING_APPROVAL"
             )
             db.add(qt)
             db.commit()
@@ -61,7 +67,7 @@ class PaperTradingEngine:
             
             for sym in symbols_needed:
                 try:
-                    df = self.client.get_historical_klines(sym, "1h", limit=50)
+                    df = self.client.get_historical_klines(sym, "1h", limit=200)
                     df = MarketDataProcessor.add_indicators(df)
                     
                     # Build locals dict for eval
@@ -71,6 +77,13 @@ class PaperTradingEngine:
                     if 'rsi' in locals_dict: locals_dict['RSI'] = locals_dict['rsi']
                     if 'macd' in locals_dict: locals_dict['MACD'] = locals_dict['macd']
                     locals_dict['price'] = last_row['close']
+                    
+                    if len(df) >= 2:
+                        prev_row = df.iloc[-2]
+                        locals_dict['rsi_prev'] = prev_row.get('rsi', 0)
+                        locals_dict['rsi_current'] = last_row.get('rsi', 0)
+                        locals_dict['rsi5_prev'] = prev_row.get('rsi5', 0)
+                        locals_dict['rsi5_current'] = last_row.get('rsi5', 0)
                     
                     # Add donchian levels required by prompts
                     # For paper_trader, df contains the recent limit=50 rows
@@ -113,9 +126,16 @@ class PaperTradingEngine:
         Supports expressions like 'RSI < 70', 'price > bb_lower * 1.01 and rsi < 30',
         using only variables present in locals_dict.
         """
+        condition_str = str(condition_str)
+        condition_str = html.unescape(condition_str)
+        
+        # Auto-fix common LLM syntax hallucinations
+        condition_str = re.sub(r'(?i)(\d+)-day\s*high', r'high_\1', condition_str)
+        condition_str = re.sub(r'(?i)(\d+)-day\s*low', r'low_\1', condition_str)
+        
         if not condition_str or condition_str.lower() in ("true", "none", "n/a"):
             return True
-        if condition_str.lower() in ("false",):
+        if condition_str.lower() in ("false", "hold"):
             return False
 
         try:

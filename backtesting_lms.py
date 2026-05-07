@@ -11,6 +11,7 @@ from datetime import datetime, timezone, timedelta
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import html
+import re
 
 # Ensure imports work from src
 project_root = os.path.dirname(os.path.abspath(__file__))
@@ -131,6 +132,10 @@ class BacktestEngine:
         condition_str = str(condition_str)
         condition_str = html.unescape(condition_str)
         
+        # Auto-fix common LLM syntax hallucinations
+        condition_str = re.sub(r'(?i)(\d+)-day\s*high', r'high_\1', condition_str)
+        condition_str = re.sub(r'(?i)(\d+)-day\s*low', r'low_\1', condition_str)
+        
         if condition_str.lower() in ("true", "none", "n/a"):
             return True
         if condition_str.lower() in ("false", "hold"):
@@ -249,6 +254,14 @@ class BacktestEngine:
             # Build execution namespace for evaluating conditions
             locals_dict = {col: row[col] for col in df.columns}
             locals_dict['price'] = price
+            
+            # Inject commonly hallucinated prev metrics
+            if i > 0:
+                prev_row = df.iloc[i-1]
+                locals_dict['rsi_prev'] = prev_row.get('rsi', 0)
+                locals_dict['rsi_current'] = row.get('rsi', 0)
+                locals_dict['rsi5_prev'] = prev_row.get('rsi5', 0)
+                locals_dict['rsi5_current'] = row.get('rsi5', 0)
             
             # Add donchian levels required by prompts
             locals_dict['high_10'] = df['high'].iloc[i-9:i+1].max()

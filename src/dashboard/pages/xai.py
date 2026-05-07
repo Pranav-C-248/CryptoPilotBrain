@@ -2,6 +2,7 @@ import streamlit as st
 import os
 import sys
 import json
+import html
 
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 sys.path.insert(0, project_root)
@@ -13,7 +14,7 @@ st.set_page_config(page_title="CryptoPilot - Explainable AI", page_icon="", layo
 from src.dashboard.shared.theme import inject_theme_css
 inject_theme_css()
 
-st.title("Explainable AI (XAI) 🧠")
+st.title("Explainable AI (XAI)")
 st.markdown("Detailed breakdown of the AI's internal reasoning process.")
 
 @st.cache_data(ttl=10)
@@ -50,8 +51,25 @@ if logs:
             if isinstance(factors, str):
                 factors = json.loads(factors)
                 
+            import re
+            
+            def format_monologue(text):
+                text = html.escape(text)
+                # Highlight keywords
+                text = re.sub(r'\b(BUY|LONG|BULLISH)\b', r'<span style="color:#0ecb81; font-weight:bold;">\1</span>', text)
+                text = re.sub(r'\b(SELL|SHORT|BEARISH)\b', r'<span style="color:#f6465d; font-weight:bold;">\1</span>', text)
+                text = re.sub(r'\b(HOLD|NEUTRAL)\b', r'<span style="color:#eab308; font-weight:bold;">\1</span>', text)
+                text = re.sub(r'\b(RSI|MACD|EMA|SMA|ATR|Volume)\b', r'<span style="color:#3b82f6; font-weight:bold;">\1</span>', text)
+                text = re.sub(r'\b(Support|Resistance)\b', r'<span style="color:#a855f7; font-weight:bold;">\1</span>', text)
+                return text
+
             monologue = factors.get("internal_monologue", "No monologue available.")
-            st.code(monologue, language="text")
+            monologue_html = format_monologue(monologue)
+            
+            st.markdown(
+                f'''<div style="white-space: pre-wrap; font-family: 'Inter', sans-serif; line-height: 1.6; background: linear-gradient(145deg, rgba(20,20,20,0.6), rgba(10,10,10,0.8)); padding: 20px; border-radius: 10px; border-left: 4px solid #3b82f6; box-shadow: 0 4px 6px rgba(0,0,0,0.3); font-size: 0.95rem; color: #e2e8f0;">{monologue_html}</div>''',
+                unsafe_allow_html=True
+            )
         except Exception as e:
             st.error("Failed to parse factors for this log.")
             

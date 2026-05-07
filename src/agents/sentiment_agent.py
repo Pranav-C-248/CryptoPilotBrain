@@ -2,13 +2,17 @@ import feedparser
 from transformers import pipeline
 
 class SentimentAgent:
+    _pipeline = None
+
     def __init__(self):
-        self.model = pipeline(
-            "text-classification",
-            model="ProsusAI/finbert",
-            tokenizer="ProsusAI/finbert",
-            top_k=None
-        )
+        if SentimentAgent._pipeline is None:
+            SentimentAgent._pipeline = pipeline(
+                "text-classification",
+                model="ProsusAI/finbert",
+                tokenizer="ProsusAI/finbert",
+                top_k=None
+            )
+        self.model = SentimentAgent._pipeline
 
     def fetch_and_analyze_news(self, limit=5):
         url = "https://www.coindesk.com/arc/outboundfeeds/rss/"

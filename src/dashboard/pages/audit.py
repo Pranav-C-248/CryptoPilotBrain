@@ -13,8 +13,8 @@ st.set_page_config(page_title="CryptoPilot - Audit Trail", page_icon="", layout=
 from src.dashboard.shared.theme import inject_theme_css
 inject_theme_css()
 
-st.title("Audit Trail 📋")
-st.markdown("History of all AI trading decisions.")
+st.title("Audit Trail")
+st.markdown("Raw logs of all AI signals, analysis, and actions.")
 
 @st.cache_data(ttl=10)
 def fetch_audit_logs():

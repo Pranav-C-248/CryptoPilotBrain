@@ -7,14 +7,14 @@ import sys
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 sys.path.insert(0, project_root)
 
-st.set_page_config(page_title="CryptoPilot - News", page_icon="📰", layout="wide")
+st.set_page_config(page_title="CryptoPilot - News", page_icon="", layout="wide")
 
 from src.dashboard.shared.theme import inject_theme_css
 from src.agents.sentiment_agent import SentimentAgent
 
 inject_theme_css()
 
-st.title("Crypto News & Sentiment 📰")
+st.title("Crypto News & Sentiment")
 st.markdown("Latest top 5 news from CoinDesk, analyzed by AI.")
 
 @st.cache_data(ttl=600)
@@ -33,18 +33,24 @@ with st.spinner("Fetching and analyzing latest news..."):
         
         col1, col2, col3 = st.columns(3)
         with col1:
-            sentiment_label = "Neutral"
+            st.metric("Overall Sentiment", f"{avg_sentiment:.2f}")
             if avg_sentiment > 0.6:
-                sentiment_label = "Bullish"
+                st.markdown('<p style="color:#0ecb81; font-size:0.875rem; margin-top:-15px;">↑ Bullish</p>', unsafe_allow_html=True)
             elif avg_sentiment < 0.4:
-                sentiment_label = "Bearish"
-            st.metric("Overall Sentiment", f"{avg_sentiment:.2f}", sentiment_label)
+                st.markdown('<p style="color:#f6465d; font-size:0.875rem; margin-top:-15px;">↓ Bearish</p>', unsafe_allow_html=True)
+            else:
+                st.markdown('<p style="color:#848e9c; font-size:0.875rem; margin-top:-15px;">− Neutral</p>', unsafe_allow_html=True)
             
         st.markdown("---")
         
         # Display news cards
         for _, row in df_news.iterrows():
-            sentiment_color = "#0ecb81" if row['sentiment_score'] >= 0.5 else "#f6465d"
+            if row['sentiment_score'] > 0.6:
+                sentiment_color = "#0ecb81"
+            elif row['sentiment_score'] < 0.4:
+                sentiment_color = "#f6465d"
+            else:
+                sentiment_color = "#eab308"
             st.markdown(f"""
             <div style="background-color: #161b22; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid {sentiment_color};">
                 <h4><a href="{row['link']}" target="_blank" style="color: #ffffff; text-decoration: none;">{row['title']}</a></h4>

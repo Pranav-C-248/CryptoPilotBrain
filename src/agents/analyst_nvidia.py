@@ -355,7 +355,8 @@ price, open, high, low, close, volume,
 rsi, rsi5, ema9, ema20, ema50, ema200,
 bb_upper, bb_lower, bb_mid, bb40_upper, bb40_lower,
 adx, atr, atr_avg_5, atr_expanding,
-high_10, low_10, high_20, low_20, high_50, low_50, high_55, low_55
+high_10, low_10, high_20, low_20, high_50, low_50, high_55, low_55,
+is_spike, is_capitulation_spike
 </available_variables>
 
 To reference the previous candle's value, the backtester does NOT have _prev columns.
@@ -558,9 +559,11 @@ Follow Steps 1 through 6 from your instructions and produce the JSON output."""
 
     def _clean_json_response(self, content: str) -> str:
         match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", content)
-        if match:
-            return match.group(1)
-        return content.strip()
+        cleaned = match.group(1) if match else content.strip()
+        # Auto-fix common invalid escapes in JSON (e.g., \$ or \w)
+        # Replace a backslash followed by any character that is NOT a valid JSON escape character
+        cleaned = re.sub(r'\\([^"\\/bfnrtu])', r'\\\\\1', cleaned)
+        return cleaned
 
 
 # ══════════════════════════════════════════════════════════════════════════════

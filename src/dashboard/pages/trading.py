@@ -7,6 +7,7 @@ project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_
 sys.path.insert(0, project_root)
 
 from src.dashboard.shared.database import get_db, QueuedTrade
+from src.core.config_manager import ConfigManager
 
 st.set_page_config(
     page_title="CryptoPilot - Trading",
@@ -18,7 +19,7 @@ st.set_page_config(
 from src.dashboard.shared.theme import inject_theme_css
 inject_theme_css()
 
-st.title("CryptoPilot: Trading Queue ⚖️")
+st.title("CryptoPilot: Trading Queue")
 
 db_gen = get_db()
 db = next(db_gen)
@@ -47,7 +48,21 @@ pending_trades = db.query(QueuedTrade).filter(QueuedTrade.status == "PENDING_APP
 active_trades = db.query(QueuedTrade).filter(QueuedTrade.status.in_(["UNENTERED", "ENTERED"])).order_by(QueuedTrade.id.desc()).all()
 
 # --- Pending Approvals Section ---
-st.header("Pending Approvals")
+col1, col2 = st.columns([3, 1])
+with col1:
+    st.header("Pending Approvals")
+with col2:
+    settings = ConfigManager.load_settings()
+    auto_approve = st.toggle("Auto-Approve Trades", value=settings.get("auto_approve_trades", False))
+    if auto_approve != settings.get("auto_approve_trades", False):
+        settings["auto_approve_trades"] = auto_approve
+        ConfigManager.save_settings(settings)
+        # Automatically approve any currently pending trades when turned on
+        if auto_approve and pending_trades:
+            for pt in pending_trades:
+                pt.status = "UNENTERED"
+            db.commit()
+            st.rerun()
 
 if pending_trades:
     st.info(f"You have {len(pending_trades)} trades pending approval.")
@@ -66,9 +81,9 @@ if pending_trades:
 
                 btn_col1, btn_col2 = st.columns([1, 4])
                 with btn_col1:
-                    approve = st.form_submit_button("✅ Approve", use_container_width=True)
+                    approve = st.form_submit_button("Approve", use_container_width=True)
                 with btn_col2:
-                    reject = st.form_submit_button("❌ Reject", use_container_width=True)
+                    reject = st.form_submit_button("Reject", use_container_width=True)
                 
                 if approve:
                     update_trade(trade.id, "approve", new_entry, new_exit, new_tp, new_sl)

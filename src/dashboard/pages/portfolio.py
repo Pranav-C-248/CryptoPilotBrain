@@ -23,7 +23,7 @@ st.set_page_config(
 from src.dashboard.shared.theme import inject_theme_css
 inject_theme_css()
 
-st.title("CryptoPilot: Portfolio 💼")
+st.title("CryptoPilot: Portfolio")
 
 # --- Database Fetching & Initialization ---
 db_gen = get_db()
@@ -58,18 +58,16 @@ with col1:
     st.metric(label="Available Balance", value=f"${available_balance:,.2f}")
 
 with col2:
-    pnl_color = "normal"
+    pnl_pct = (total_realized_pnl / 10000.0) * 100
     if total_realized_pnl > 0:
-        pnl_color = "normal" # Streamlit uses green for positive delta
+        st.metric("Total Realized P&L", f"+${total_realized_pnl:,.2f}")
+        st.markdown(f'<p style="color:#0ecb81; font-size:0.875rem; margin-top:-15px;">↑ {pnl_pct:.2f}%</p>', unsafe_allow_html=True)
     elif total_realized_pnl < 0:
-        pnl_color = "inverse" # Streamlit uses red for negative delta
-    
-    st.metric(
-        label="Total Realized P&L", 
-        value=f"${abs(total_realized_pnl):,.2f}",
-        delta=f"{total_realized_pnl:,.2f}",
-        delta_color=pnl_color
-    )
+        st.metric("Total Realized P&L", f"-${abs(total_realized_pnl):,.2f}")
+        st.markdown(f'<p style="color:#f6465d; font-size:0.875rem; margin-top:-15px;">↓ {abs(pnl_pct):.2f}%</p>', unsafe_allow_html=True)
+    else:
+        st.metric("Total Realized P&L", "$0.00")
+        st.markdown('<p style="color:#848e9c; font-size:0.875rem; margin-top:-15px;">− 0.00%</p>', unsafe_allow_html=True)
 
 with col3:
     active_positions_count = len([p for p in positions if p.quantity > 0])
