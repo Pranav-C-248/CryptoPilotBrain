@@ -35,29 +35,29 @@ with st.spinner("Fetching and analyzing latest news..."):
         with col1:
             st.metric("Overall Sentiment", f"{avg_sentiment:.2f}")
             if avg_sentiment > 0.6:
-                st.markdown('<p style="color:#0ecb81; font-size:0.875rem; margin-top:-15px;">↑ Bullish</p>', unsafe_allow_html=True)
+                st.markdown('<p style="color:#05b169; font-size:0.875rem; margin-top:-15px;">↑ Bullish</p>', unsafe_allow_html=True)
             elif avg_sentiment < 0.4:
-                st.markdown('<p style="color:#f6465d; font-size:0.875rem; margin-top:-15px;">↓ Bearish</p>', unsafe_allow_html=True)
+                st.markdown('<p style="color:#cf202f; font-size:0.875rem; margin-top:-15px;">↓ Bearish</p>', unsafe_allow_html=True)
             else:
-                st.markdown('<p style="color:#848e9c; font-size:0.875rem; margin-top:-15px;">− Neutral</p>', unsafe_allow_html=True)
+                st.markdown('<p style="color:#a8acb3; font-size:0.875rem; margin-top:-15px;">− Neutral</p>', unsafe_allow_html=True)
             
         st.markdown("---")
         
         # Display news cards
         for _, row in df_news.iterrows():
             if row['sentiment_score'] > 0.6:
-                sentiment_color = "#0ecb81"
+                sentiment_color = "#05b169"
             elif row['sentiment_score'] < 0.4:
-                sentiment_color = "#f6465d"
+                sentiment_color = "#cf202f"
             else:
-                sentiment_color = "#eab308"
+                sentiment_color = "#f4b000"
             st.markdown(f"""
-            <div style="background-color: #161b22; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid {sentiment_color};">
-                <h4><a href="{row['link']}" target="_blank" style="color: #ffffff; text-decoration: none;">{row['title']}</a></h4>
-                <p style="color: #848e9c; font-size: 14px; margin-bottom: 5px;">Published: {row['published']}</p>
-                <div style="background-color: #0b0e11; padding: 10px; border-radius: 4px; margin-top: 10px;">
-                    <strong style="color: {sentiment_color};">AI Sentiment Score: {row['sentiment_score']:.2f}</strong>
-                    <p style="color: #e2e8f0; margin-top: 5px; font-size: 14px; line-height: 1.4;">{row['reasoning']}</p>
+            <div style="background-color: #16181c; padding: 24px; border-radius: 24px; margin-bottom: 15px; border-left: 4px solid {sentiment_color}; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);">
+                <h4 style="margin-top: 0;"><a href="{row['link']}" target="_blank" style="color: #ffffff; text-decoration: none;">{row['title']}</a></h4>
+                <p style="color: #a8acb3; font-size: 14px; margin-bottom: 5px;">Published: {row['published']}</p>
+                <div style="background-color: #0a0b0d; padding: 16px; border-radius: 12px; margin-top: 16px;">
+                    <strong style="color: {sentiment_color}; font-family: 'JetBrains Mono', monospace;">AI Sentiment Score: {row['sentiment_score']:.2f}</strong>
+                    <p style="color: #eef0f3; margin-top: 8px; font-size: 14px; line-height: 1.5;">{row['reasoning']}</p>
                 </div>
             </div>
             """, unsafe_allow_html=True)

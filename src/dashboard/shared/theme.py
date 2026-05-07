@@ -3,80 +3,96 @@ import streamlit as st
 def inject_theme_css():
     css = """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Anton&family=Fira+Code:wght@400;500;600&family=Rubik:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
-    /* Global Typography */
+    /* Global Typography & Colors */
     html, body, [class*="css"] {
-        font-family: 'Rubik', sans-serif;
+        font-family: 'Inter', sans-serif;
+        background-color: #0a0b0d !important;
+        color: #ffffff !important;
+    }
+    
+    .stApp {
+        background-color: #0a0b0d !important;
     }
     
     /* Headings */
-    h1 {
-        font-family: 'Anton', sans-serif !important;
-        letter-spacing: 1px;
+    h1, h2, h3, h4, h5, h6 {
+        font-family: 'Inter', sans-serif !important;
+        font-weight: 400 !important;
+        color: #ffffff !important;
     }
-    h2, h3, h4, h5, h6 {
-        font-family: 'Rubik', sans-serif !important;
-        font-weight: 500;
+    h1 {
+        letter-spacing: -1.5px !important;
+    }
+    h2, h3 {
+        letter-spacing: -0.5px !important;
     }
 
-    /* Buttons */
+    /* Tabular / Number Data */
+    div[data-testid="stMetricValue"], .stDataFrame {
+        font-family: 'JetBrains Mono', monospace !important;
+        font-weight: 500 !important;
+    }
+
+    /* Buttons (Coinbase Pill CTA) */
     .stButton > button {
-        background-color: #79628c !important;
+        background-color: #0052ff !important;
         color: #ffffff !important;
-        border: 1px solid #584674 !important;
-        border-radius: 13px !important;
-        text-transform: uppercase !important;
+        border: none !important;
+        border-radius: 100px !important; /* Pill shape */
         font-weight: 600 !important;
-        letter-spacing: 0.2px !important;
-        box-shadow: rgba(0, 0, 0, 0.4) 0px 2px 4px 0px inset !important;
-        transition: all 0.2s ease-in-out !important;
-        padding: 0.5rem 1rem !important;
+        padding: 0.5rem 1.5rem !important;
+        box-shadow: none !important;
+        transition: background-color 0.2s ease !important;
     }
     .stButton > button:hover {
-        box-shadow: rgba(0, 0, 0, 0.18) 0px 0.5rem 1.5rem !important;
-        background-color: #6a5fc1 !important;
+        background-color: #003ecc !important;
         color: #ffffff !important;
-        border-color: #6a5fc1 !important;
     }
 
     /* Metric Cards / Standard Containers */
     div[data-testid="stMetric"], div[data-testid="stExpander"] {
-        background-color: #150f23 !important;
-        border: 1px solid #362d59 !important;
-        border-radius: 8px !important;
-        box-shadow: rgba(0, 0, 0, 0.1) 0px 10px 15px -3px !important;
+        background-color: #16181c !important;
+        border: none !important;
+        border-radius: 24px !important; /* Cards are 24px */
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04) !important;
     }
 
     /* Sidebar */
     [data-testid="stSidebar"] {
-        border-right: 1px solid #362d59 !important;
+        background-color: #0a0b0d !important;
+        border-right: 1px solid #16181c !important;
     }
     
     /* Code Blocks */
     code {
-        font-family: 'Fira Code', monospace !important;
-        color: #dcdcaa !important;
-        background-color: rgba(255, 255, 255, 0.05) !important;
+        font-family: 'JetBrains Mono', monospace !important;
+        color: #a8acb3 !important;
+        background-color: #16181c !important;
         border-radius: 4px;
         padding: 2px 4px;
     }
     
     /* Links */
     a {
-        color: #6a5fc1 !important;
-        text-decoration: underline !important;
+        color: #0052ff !important;
+        text-decoration: none !important;
         transition: color 0.2s ease !important;
     }
     a:hover {
-        color: #ffffff !important;
+        text-decoration: underline !important;
     }
 
     /* Success text / Badges */
     .st-emotion-cache-1kyxreq, .st-emotion-cache-16idsys {
-        color: #c2ef4e !important;
+        color: #05b169 !important;
     }
 
+    /* Dividers */
+    hr {
+        border-bottom-color: #16181c !important;
+    }
     </style>
     """
     st.markdown(css, unsafe_allow_html=True)
