@@ -72,6 +72,21 @@ class PaperTradingEngine:
                     if 'macd' in locals_dict: locals_dict['MACD'] = locals_dict['macd']
                     locals_dict['price'] = last_row['close']
                     
+                    # Add donchian levels required by prompts
+                    # For paper_trader, df contains the recent limit=50 rows
+                    # The last row is df.iloc[-1], so we slice up to the end
+                    locals_dict['high_10'] = df['high'].iloc[-10:].max()
+                    locals_dict['low_10'] = df['low'].iloc[-10:].min()
+                    locals_dict['high_20'] = df['high'].iloc[-20:].max()
+                    locals_dict['low_20'] = df['low'].iloc[-20:].min()
+                    locals_dict['high_50'] = df['high'].iloc[-50:].max()
+                    locals_dict['low_50'] = df['low'].iloc[-50:].min()
+                    # since limit is 50, -55 will just be the whole dataframe which is fine as a fallback
+                    locals_dict['high_55'] = df['high'].iloc[-55:].max() if len(df) >= 55 else locals_dict['high_50']
+                    locals_dict['low_55'] = df['low'].iloc[-55:].min() if len(df) >= 55 else locals_dict['low_50']
+                    
+                    locals_dict.update({k.upper(): v for k, v in locals_dict.items() if isinstance(k, str)})
+                    
                     market_data_cache[sym] = locals_dict
                 except Exception as e:
                     print(f"[PaperTrader] Failed fetching data for {sym}: {e}")
@@ -119,6 +134,13 @@ class PaperTradingEngine:
             raise ValueError(f"Disallowed constant type: {type(node.value)}")
 
         if isinstance(node, ast.Name):
+            var_id = node.id.lower()
+            if var_id == 'true':
+                return True
+            if var_id == 'false':
+                return False
+            if var_id in variables:
+                return variables[var_id]
             if node.id in variables:
                 return variables[node.id]
             raise NameError(f"Unknown variable: {node.id}")

@@ -11,7 +11,7 @@ sys.path.insert(0, project_root)
 
 from src.tools.indicators import MarketDataProcessor
 
-def fetch_historical_data(symbol="BTCUSDT", interval="4h", start_year=2017, start_month=1, start_day=1):
+def fetch_historical_data(symbol="BTCUSDT", interval="4h", start_year=2026, start_month=1, start_day=1):
     """Fetches historical klines handling Binance pagination limit of 1000."""
     print(f"Fetching {interval} data for {symbol} from {start_year}-{start_month:02d}-{start_day:02d} to today...")
     

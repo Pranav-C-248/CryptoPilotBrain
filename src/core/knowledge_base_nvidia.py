@@ -1,5 +1,6 @@
 import json
 import os
+import time
 import shutil
 from langchain_core.documents import Document
 from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings
@@ -247,19 +248,33 @@ Required Indicators: {', '.join(op['dependency_indicators'])}
 
         chroma_filter = self._build_regime_filter(regime_filter)
 
-        try:
-            if chroma_filter:
-                results = self.vector_db.similarity_search_with_relevance_scores(
-                    query, k=fetch_k, filter=chroma_filter
-                )
-            else:
-                # No regime detected — unfiltered search, forbidden post-filter still runs
-                results = self.vector_db.similarity_search_with_relevance_scores(
-                    query, k=fetch_k
-                )
-        except Exception as e:
-            print(f"[KB] ChromaDB search failed: {e}. Returning empty.")
-            return []
+        attempt = 0
+        base_delay = 2
+        max_delay = 60
+        results = []
+
+        while True:
+            try:
+                if chroma_filter:
+                    results = self.vector_db.similarity_search_with_relevance_scores(
+                        query, k=fetch_k, filter=chroma_filter
+                    )
+                else:
+                    # No regime detected — unfiltered search, forbidden post-filter still runs
+                    results = self.vector_db.similarity_search_with_relevance_scores(
+                        query, k=fetch_k
+                    )
+                break
+            except Exception as e:
+                error_str = str(e).lower()
+                if "429" in error_str or "too many requests" in error_str or "rate limit" in error_str:
+                    delay = min(base_delay * (2 ** attempt), max_delay)
+                    print(f"[KB] NVIDIA API Rate Limit (429). Retrying in {delay}s...")
+                    time.sleep(delay)
+                    attempt += 1
+                    continue
+                print(f"[KB] ChromaDB search failed: {e}. Returning empty.")
+                return []
 
         # ── Debug log ─────────────────────────────────────────────────────────
         print("--- KB RETRIEVAL ---")

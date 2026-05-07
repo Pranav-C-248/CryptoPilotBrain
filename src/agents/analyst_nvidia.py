@@ -1,4 +1,5 @@
 import json
+import time
 import re
 from datetime import datetime, timezone, timedelta
 from dotenv import dotenv_values
@@ -525,13 +526,27 @@ Follow Steps 1 through 6 from your instructions and produce the JSON output."""
             parsed = json.loads(response.text)
         except Exception as e:
             print(f"Gemini API failed: {e}. Falling back to NVIDIA (deepseek-v4-pro)...")
-            try:
-                response = self.nvidia_llm.invoke([("system", system_msg), ("human", user_msg)])
-                clean_content = self._clean_json_response(response.content)
-                parsed = json.loads(clean_content)
-            except Exception as nvidia_e:
-                print(f"NVIDIA fallback also failed: {nvidia_e}")
-                raise e  # intentionally preserved per request
+            
+            attempt = 0
+            base_delay = 2
+            max_delay = 60
+            
+            while True:
+                try:
+                    response = self.nvidia_llm.invoke([("system", system_msg), ("human", user_msg)])
+                    clean_content = self._clean_json_response(response.content)
+                    parsed = json.loads(clean_content)
+                    break  # Success
+                except Exception as nvidia_e:
+                    error_str = str(nvidia_e).lower()
+                    if "429" in error_str or "too many requests" in error_str or "rate limit" in error_str:
+                        delay = min(base_delay * (2 ** attempt), max_delay)
+                        print(f"NVIDIA API Rate Limit (429). Retrying in {delay}s...")
+                        time.sleep(delay)
+                        attempt += 1
+                        continue
+                    print(f"NVIDIA fallback also failed: {nvidia_e}")
+                    raise e  # intentionally preserved per request
 
         try:
             parsed["asset_name"] = asset_name
