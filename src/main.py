@@ -3,19 +3,12 @@ import subprocess
 import time
 import os
 import sys
-import traceback
-from datetime import datetime, timezone
 import schedule
 import threading
 
 project_root = os.path.dirname(os.path.dirname(__file__))
 sys.path.insert(0, project_root)
 
-from src.tools.binance_client import BinancePublicClient
-from src.agents.analyst import AnalystAgent
-from src.agents.risk_manager import RiskManagerAgent
-from src.core.knowledge_base import TradingKnowledgeBase
-from src.dashboard.shared.database import get_db, AuditLog
 from src.core.paper_trader import PaperTradingEngine
 
 from src.agents.data_agent import MainDataAgent
