@@ -242,11 +242,17 @@ class BacktestEngine:
             timestamp = row['open_time'].isoformat()
             price = row['close']
             
-            # Record equity
+            # Record equity (including PnL components for metrics calculation)
+            realized_pnl = sum(t['pnl'] for t in self.trade_history)
+            unrealized_pnl = 0
+            for trade in self.portfolio:
+                unrealized_pnl += ((price - trade['entry_price']) / trade['entry_price']) * trade['position_size']
             self.equity_curve.append({
                 "timestamp": timestamp,
                 "balance": self.balance,
-                "price": price
+                "price": price,
+                "realized_pnl": realized_pnl,
+                "unrealized_pnl": unrealized_pnl,
             })
             
             print(f"\nStep {i-window+1}/{total_steps} | {timestamp} | Price: ${price:.2f} | Balance: ${self.balance:.2f} | ")
@@ -392,44 +398,177 @@ class BacktestEngine:
             self.portfolio.clear()
 
         # Final record
+        final_realized_pnl = sum(t['pnl'] for t in self.trade_history)
         self.equity_curve.append({
             "timestamp": df.iloc[window + total_steps - 1]['open_time'].isoformat(),
             "balance": self.balance,
-            "price": df.iloc[window + total_steps - 1]['close']
+            "price": df.iloc[window + total_steps - 1]['close'],
+            "realized_pnl": final_realized_pnl,
+            "unrealized_pnl": 0,  # all positions closed
         })
 
-    def print_metrics(self):
-        roi = ((self.balance - self.initial_balance) / self.initial_balance) * 100
-        wins = [t for t in self.trade_history if t['pnl'] > 0]
-        losses = [t for t in self.trade_history if t['pnl'] <= 0]
-        win_rate = (len(wins) / len(self.trade_history) * 100) if self.trade_history else 0
+    def compute_advanced_metrics(self) -> dict:
+        """Compute all advanced performance metrics from in-memory simulation data.
         
-        gross_profit = sum(t['pnl'] for t in wins)
-        gross_loss = abs(sum(t['pnl'] for t in losses))
-        profit_factor = (gross_profit / gross_loss) if gross_loss > 0 else float('inf')
+        Calculates: ROI, Sharpe/Sortino/Calmar ratios, max drawdown, drawdown
+        duration, alpha vs buy-and-hold, and full per-trade statistics.
+        No log parsing — everything comes from self.equity_curve and self.trade_history.
+        """
+        metrics = {}
 
-        print("\n" + "="*50)
-        print("📊 BACKTEST FINAL REPORT")
-        print("="*50)
-        print(f"Initial Balance:  ${self.initial_balance:,.2f}")
-        print(f"Final Balance:    ${self.balance:,.2f}")
-        print(f"Net Profit:       ${(self.balance - self.initial_balance):,.2f}")
-        print(f"Total ROI:        {roi:.2f}%")
-        print(f"Total Trades:     {len(self.trade_history)}")
-        print(f"Win Rate:         {win_rate:.2f}% ({len(wins)}W / {len(losses)}L)")
-        print(f"Profit Factor:    {profit_factor:.2f}")
-        print("="*50)
+        # --- Build equity DataFrame from in-memory curve ---
+        eq_df = pd.DataFrame(self.equity_curve)
+        eq_df["timestamp"] = pd.to_datetime(eq_df["timestamp"], utc=True)
+        eq_df = eq_df.sort_values("timestamp").reset_index(drop=True)
 
-        # Save metrics to table
-        metrics_df = pd.DataFrame([{
-            "Initial Balance": self.initial_balance,
-            "Final Balance": self.balance,
-            "Net Profit": self.balance - self.initial_balance,
-            "Total ROI %": roi,
-            "Total Trades": len(self.trade_history),
-            "Win Rate %": win_rate,
-            "Profit Factor": profit_factor
-        }])
+        # Total equity = initial_balance + realised + unrealised
+        eq_df["total_equity"] = self.initial_balance + eq_df["realized_pnl"] + eq_df["unrealized_pnl"]
+
+        initial_price = eq_df["price"].iloc[0]
+        final_price = eq_df["price"].iloc[-1]
+        final_equity = eq_df["total_equity"].iloc[-1]
+
+        # ---- Basic ----
+        metrics["Initial Balance"] = self.initial_balance
+        metrics["Final Equity"] = final_equity
+        metrics["Net Profit"] = final_equity - self.initial_balance
+        metrics["Total ROI %"] = ((final_equity - self.initial_balance) / self.initial_balance) * 100
+
+        # ---- Asset Price ----
+        metrics["Asset Start Price"] = initial_price
+        metrics["Asset End Price"] = final_price
+        metrics["Asset Return %"] = ((final_price - initial_price) / initial_price) * 100
+
+        # ---- Returns series ----
+        eq_df["returns"] = eq_df["total_equity"].pct_change().fillna(0)
+
+        # ---- Sharpe Ratio (annualized, 4h candles -> 6/day -> 2190/year) ----
+        periods_per_year = 6 * 365
+        mean_ret = eq_df["returns"].mean()
+        std_ret = eq_df["returns"].std()
+        metrics["Sharpe Ratio (Annualized)"] = (
+            (mean_ret / std_ret) * np.sqrt(periods_per_year) if std_ret > 0 else 0
+        )
+
+        # ---- Sortino Ratio (annualized, downside deviation) ----
+        downside_returns = eq_df["returns"][eq_df["returns"] < 0]
+        downside_std = downside_returns.std()
+        metrics["Sortino Ratio (Annualized)"] = (
+            (mean_ret / downside_std) * np.sqrt(periods_per_year) if downside_std > 0 else 0
+        )
+
+        # ---- Cumulative Returns ----
+        eq_df["cumulative_return_pct"] = (
+            (eq_df["total_equity"] - self.initial_balance) / self.initial_balance
+        ) * 100
+        eq_df["asset_cumulative_return_pct"] = (
+            (eq_df["price"] - initial_price) / initial_price
+        ) * 100
+
+        # ---- Drawdown (on total equity) ----
+        eq_df["peak"] = eq_df["total_equity"].cummax()
+        eq_df["drawdown_pct"] = ((eq_df["total_equity"] - eq_df["peak"]) / eq_df["peak"]) * 100
+        metrics["Max Drawdown %"] = eq_df["drawdown_pct"].min()
+
+        # ---- Asset Drawdown ----
+        eq_df["asset_peak"] = eq_df["price"].cummax()
+        eq_df["asset_drawdown_pct"] = ((eq_df["price"] - eq_df["asset_peak"]) / eq_df["asset_peak"]) * 100
+        metrics["Asset Max Drawdown %"] = eq_df["asset_drawdown_pct"].min()
+
+        # ---- Drawdown Duration ----
+        in_drawdown = eq_df["drawdown_pct"] < 0
+        if in_drawdown.any():
+            drawdown_groups = (~in_drawdown).cumsum()
+            drawdown_durations = eq_df[in_drawdown].groupby(
+                drawdown_groups[in_drawdown]
+            )["timestamp"].agg(lambda x: (x.max() - x.min()))
+            if len(drawdown_durations) > 0:
+                metrics["Max Drawdown Duration"] = str(drawdown_durations.max())
+            else:
+                metrics["Max Drawdown Duration"] = "N/A"
+        else:
+            metrics["Max Drawdown Duration"] = "N/A"
+
+        # ---- Calmar Ratio (annualized return / |max drawdown|) ----
+        total_days = (
+            (eq_df["timestamp"].iloc[-1] - eq_df["timestamp"].iloc[0]).total_seconds() / 86400
+        )
+        annualized_return_pct = (
+            (metrics["Total ROI %"] / total_days) * 365 if total_days > 0 else 0
+        )
+        metrics["Annualized Return %"] = annualized_return_pct
+        metrics["Calmar Ratio"] = (
+            abs(annualized_return_pct / metrics["Max Drawdown %"])
+            if metrics["Max Drawdown %"] != 0
+            else 0
+        )
+
+        # ---- Alpha (strategy vs buy-and-hold) ----
+        metrics["Alpha % (vs Buy & Hold)"] = metrics["Total ROI %"] - metrics["Asset Return %"]
+
+        # ---- Per-Trade Metrics (from trade_history, no log parsing) ----
+        if self.trade_history:
+            trades_df = pd.DataFrame(self.trade_history)
+            wins = trades_df[trades_df["pnl"] > 0]
+            losses = trades_df[trades_df["pnl"] <= 0]
+
+            metrics["Total Trades"] = len(trades_df)
+            metrics["Wins"] = len(wins)
+            metrics["Losses"] = len(losses)
+            metrics["Win Rate %"] = (len(wins) / len(trades_df)) * 100
+
+            gross_profit = wins["pnl"].sum()
+            gross_loss = abs(losses["pnl"].sum())
+            metrics["Profit Factor"] = (
+                (gross_profit / gross_loss) if gross_loss > 0 else float("inf")
+            )
+
+            metrics["Avg Win $"] = wins["pnl"].mean() if len(wins) > 0 else 0
+            metrics["Avg Loss $"] = losses["pnl"].mean() if len(losses) > 0 else 0
+            metrics["Largest Win $"] = wins["pnl"].max() if len(wins) > 0 else 0
+            metrics["Largest Loss $"] = losses["pnl"].min() if len(losses) > 0 else 0
+
+            # Avg trade duration
+            trades_df["entry_time"] = pd.to_datetime(trades_df["entry_time"], utc=True)
+            trades_df["exit_time"] = pd.to_datetime(trades_df["exit_time"], utc=True)
+            metrics["Avg Trade Duration"] = str(
+                (trades_df["exit_time"] - trades_df["entry_time"]).mean()
+            )
+
+            # Expectancy: avg $ gained per trade
+            metrics["Expectancy $"] = trades_df["pnl"].mean()
+
+            # Consecutive wins / losses
+            results = (trades_df["pnl"] > 0).astype(int)
+            groups = (results != results.shift()).cumsum()
+            streaks = results.groupby(groups).agg(["first", "count"])
+            win_streaks = streaks[streaks["first"] == 1]["count"]
+            loss_streaks = streaks[streaks["first"] == 0]["count"]
+            metrics["Max Consecutive Wins"] = (
+                int(win_streaks.max()) if len(win_streaks) > 0 else 0
+            )
+            metrics["Max Consecutive Losses"] = (
+                int(loss_streaks.max()) if len(loss_streaks) > 0 else 0
+            )
+
+        return metrics
+
+    def print_metrics(self):
+        """Compute and display the full advanced metrics report, then save to CSV."""
+        metrics = self.compute_advanced_metrics()
+
+        print("\n" + "=" * 60)
+        print("BACKTEST FINAL REPORT — ADVANCED METRICS")
+        print("=" * 60)
+        for key, val in metrics.items():
+            if isinstance(val, float):
+                print(f"  {key:.<40} {val:>12.4f}")
+            else:
+                print(f"  {key:.<40} {str(val):>12}")
+        print("=" * 60)
+
+        # Save full metrics to CSV
+        metrics_df = pd.DataFrame([metrics])
         metrics_df.to_csv(os.path.join(project_root, "tests", "metrics.csv"), index=False)
         print("Metrics saved to tests/metrics.csv")
 
