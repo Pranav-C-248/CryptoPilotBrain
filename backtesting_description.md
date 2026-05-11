@@ -71,3 +71,51 @@ After the simulation loop completes, the engine generates comprehensive reports:
    - **Trade Chart** (`tests/trade_chart.html` & `.png`): A candlestick chart showing the asset's price action overlaid with execution markers:
      - Green triangle-up for Entries.
      - Green/Red triangle-down for Exits, depending on profitability.
+
+---
+
+## Post-Backtest Analyzer (`analyze_backtest.py`)
+
+A standalone analysis script that parses existing backtest log files to compute advanced performance metrics and generate visual reports **without re-running the simulation**.
+
+### Usage
+```bash
+python analyze_backtest.py                             # auto-picks latest log
+python analyze_backtest.py --log backtest_20260507_200708  # specific log
+python analyze_backtest.py --balance 50000             # custom initial balance
+```
+
+### Log Parsing Pipeline
+
+1. **State Log Parser**: Reads the main state log (`tests/logs/backtest_*.txt`) using regex to extract per-step snapshots of timestamp, asset price, balance, realized PnL, and unrealized PnL. Reconstructs total equity as `initial_balance + realized_pnl + unrealized_pnl` — this correctly represents the full portfolio value including open position market value.
+
+2. **Trade Log Parser**: Reads the trade log (`*_trade.txt`), splitting by `TRADE CLOSED` blocks to extract entry/exit times, prices, position sizes, targets, stop losses, PnL, and exit reasons. Includes null-guards to safely skip malformed log blocks.
+
+### Advanced Metrics Computed
+
+| Metric | Description |
+|---|---|
+| **Net Profit / Total ROI %** | Strategy profit relative to initial balance |
+| **Asset Return %** | Buy-and-hold benchmark return |
+| **Sharpe Ratio (Annualized)** | Risk-adjusted return (mean/std of period returns, scaled by √periods_per_year). Computed on returns with the first NaN dropped to avoid diluting statistics. |
+| **Sortino Ratio (Annualized)** | Like Sharpe but uses only downside deviation, penalizing losses without penalizing upside volatility. |
+| **Max Drawdown %** | Largest peak-to-trough equity decline (percentage). |
+| **Max Drawdown Duration** | Longest continuous period the strategy spent in drawdown. |
+| **Annualized Return % (CAGR)** | Compound annualized growth rate: `((final/initial)^(365/days) - 1) × 100`. |
+| **Calmar Ratio** | CAGR divided by absolute max drawdown — preserves sign so losing strategies show a negative ratio. |
+| **Alpha % (vs Buy & Hold)** | Strategy ROI minus asset buy-and-hold return. |
+| **Win Rate %, Profit Factor** | Per-trade win/loss statistics from the trade log. |
+| **Expectancy $** | Average dollar gain per trade. |
+| **Max Consecutive Wins/Losses** | Streak analysis for evaluating strategy consistency. |
+
+### Output Artifacts
+
+All outputs are saved to `tests/analysis/`:
+
+| File | Description |
+|---|---|
+| `advanced_metrics.csv` | Full metrics table as CSV |
+| `metrics_summary.html` | Standalone dark-themed HTML metrics report |
+| `cumulative_returns.html` | Strategy vs buy-and-hold cumulative return chart |
+| `drawdown.html` | Strategy vs asset drawdown chart with max-DD annotation |
+| `combined_dashboard.html` | 3-panel dashboard: equity+price, cumulative returns, drawdown |

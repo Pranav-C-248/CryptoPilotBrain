@@ -132,6 +132,10 @@ def parse_trade_log(log_base: str) -> pd.DataFrame:
         if not entry_time or not pnl_match:
             continue
 
+        # Guard against missing fields in malformed log blocks
+        if not all([exit_time, entry_price, exit_price, position_size, target, stop_loss]):
+            continue
+
         # The dollar value in the log already includes the sign (e.g. $-360.95)
         pnl_dollar = float(pnl_match.group(1).replace(",", ""))
         pnl_pct = float(pnl_match.group(2))
@@ -176,20 +180,26 @@ def compute_metrics(eq_df: pd.DataFrame, trades_df: pd.DataFrame, initial_balanc
     metrics["Asset Return %"] = ((final_price - initial_price) / initial_price) * 100
 
     # -- Returns (based on total equity, not just cash balance) --
-    eq_df["returns"] = eq_df["total_equity"].pct_change().fillna(0)
-    eq_df["asset_returns"] = eq_df["price"].pct_change().fillna(0)
+    # Use pct_change and drop the first NaN row to avoid diluting mean/std
+    eq_df["returns"] = eq_df["balance"].pct_change()
+    eq_df["asset_returns"] = eq_df["price"].pct_change()
 
     # -- Sharpe Ratio (annualized) --
     # 4h candles -> 6 per day -> 6 * 365 = 2190 periods/year
     periods_per_year = 6 * 365
-    mean_ret = eq_df["returns"].mean()
-    std_ret = eq_df["returns"].std()
+    clean_returns = eq_df["returns"].dropna()
+    mean_ret = clean_returns.mean()
+    std_ret = clean_returns.std()
     metrics["Sharpe Ratio (Annualized)"] = (mean_ret / std_ret) * np.sqrt(periods_per_year) if std_ret > 0 else 0
 
     # -- Sortino Ratio (annualized, downside deviation only) --
-    downside_returns = eq_df["returns"][eq_df["returns"] < 0]
+    downside_returns = clean_returns[clean_returns < 0]
     downside_std = downside_returns.std()
     metrics["Sortino Ratio (Annualized)"] = (mean_ret / downside_std) * np.sqrt(periods_per_year) if downside_std > 0 else 0
+
+    # Fill NaN for downstream use (charts etc.) after computing ratios
+    eq_df["returns"] = eq_df["returns"].fillna(0)
+    eq_df["asset_returns"] = eq_df["asset_returns"].fillna(0)
 
     # -- Cumulative Returns --
     eq_df["cumulative_return_pct"] = ((eq_df["total_equity"] - initial_balance) / initial_balance) * 100
@@ -221,9 +231,14 @@ def compute_metrics(eq_df: pd.DataFrame, trades_df: pd.DataFrame, initial_balanc
 
     # -- Calmar Ratio (annualized return / max drawdown) --
     total_days = (eq_df["timestamp"].iloc[-1] - eq_df["timestamp"].iloc[0]).total_seconds() / 86400
-    annualized_return_pct = (metrics["Total ROI %"] / total_days) * 365 if total_days > 0 else 0
+    # Use CAGR (compound annualized growth rate) for proper annualization
+    if total_days > 0 and final_equity > 0:
+        annualized_return_pct = ((final_equity / initial_balance) ** (365 / total_days) - 1) * 100
+    else:
+        annualized_return_pct = 0
     metrics["Annualized Return %"] = annualized_return_pct
-    metrics["Calmar Ratio"] = abs(annualized_return_pct / metrics["Max Drawdown %"]) if metrics["Max Drawdown %"] != 0 else 0
+    # abs() only on denominator so a losing strategy correctly shows a negative Calmar
+    metrics["Calmar Ratio"] = (annualized_return_pct / abs(metrics["Max Drawdown %"])) if metrics["Max Drawdown %"] != 0 else 0
 
     # -- Alpha (strategy return vs buy-and-hold) --
     metrics["Alpha % (vs Buy & Hold)"] = metrics["Total ROI %"] - metrics["Asset Return %"]
@@ -288,7 +303,7 @@ def generate_cumulative_returns_chart(eq_df: pd.DataFrame) -> go.Figure:
         x=eq_df["timestamp"],
         y=eq_df["cumulative_return_pct"],
         mode="lines",
-        name="Strategy Return %",
+        name="Portfolio Return %",
         line=dict(color=COLORS["accent"], width=2),
         fill="tozeroy",
         fillcolor="rgba(194, 239, 78, 0.08)",
@@ -305,7 +320,7 @@ def generate_cumulative_returns_chart(eq_df: pd.DataFrame) -> go.Figure:
     fig.add_hline(y=0, line_dash="dot", line_color=COLORS["muted"], line_width=1)
 
     fig.update_layout(
-        title=dict(text="Cumulative Returns: Strategy vs Buy & Hold", font=dict(size=18, color=COLORS["text"])),
+        title=dict(text="Cumulative Returns: Portfolio vs Buy & Hold", font=dict(size=18, color=COLORS["text"])),
         template="plotly_dark",
         plot_bgcolor=COLORS["bg"],
         paper_bgcolor=COLORS["paper"],
@@ -327,7 +342,7 @@ def generate_drawdown_chart(eq_df: pd.DataFrame) -> go.Figure:
         x=eq_df["timestamp"],
         y=eq_df["drawdown_pct"],
         mode="lines",
-        name="Strategy Drawdown %",
+        name="Portfolio Drawdown %",
         line=dict(color=COLORS["red"], width=2),
         fill="tozeroy",
         fillcolor="rgba(246, 70, 93, 0.15)",
@@ -349,7 +364,7 @@ def generate_drawdown_chart(eq_df: pd.DataFrame) -> go.Figure:
     max_dd_time = eq_df.loc[max_dd_idx, "timestamp"]
     fig.add_annotation(
         x=max_dd_time, y=max_dd_val,
-        text=f"Max DD: {max_dd_val:.2f}%",
+        text=f"Max Portfolio DD: {max_dd_val:.2f}%",
         showarrow=True, arrowhead=2,
         font=dict(color=COLORS["red"], size=12),
         arrowcolor=COLORS["red"],
@@ -358,7 +373,7 @@ def generate_drawdown_chart(eq_df: pd.DataFrame) -> go.Figure:
     )
 
     fig.update_layout(
-        title=dict(text="Drawdown: Strategy vs Asset", font=dict(size=18, color=COLORS["text"])),
+        title=dict(text="Drawdown: Portfolio vs Asset", font=dict(size=18, color=COLORS["text"])),
         template="plotly_dark",
         plot_bgcolor=COLORS["bg"],
         paper_bgcolor=COLORS["paper"],
@@ -401,7 +416,7 @@ def generate_combined_dashboard(eq_df: pd.DataFrame) -> go.Figure:
     # Row 2: Cumulative Returns (strategy vs buy-and-hold)
     fig.add_trace(go.Scatter(
         x=eq_df["timestamp"], y=eq_df["cumulative_return_pct"],
-        mode="lines", name="Strategy Return %",
+        mode="lines", name="Portfolio Return %",
         line=dict(color=COLORS["accent2"], width=2),
         fill="tozeroy", fillcolor="rgba(123, 97, 255, 0.08)",
     ), row=2, col=1)
@@ -414,10 +429,10 @@ def generate_combined_dashboard(eq_df: pd.DataFrame) -> go.Figure:
 
     fig.add_hline(y=0, line_dash="dot", line_color=COLORS["muted"], line_width=1, row=2, col=1)
 
-    # Row 3: Drawdown (strategy vs asset)
+    # Row 3: Drawdown (portfolio vs asset)
     fig.add_trace(go.Scatter(
         x=eq_df["timestamp"], y=eq_df["drawdown_pct"],
-        mode="lines", name="Strategy DD %",
+        mode="lines", name="Portfolio DD %",
         line=dict(color=COLORS["red"], width=2),
         fill="tozeroy", fillcolor="rgba(246, 70, 93, 0.12)",
     ), row=3, col=1)
