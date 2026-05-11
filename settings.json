@@ -1,6 +1,6 @@
 {
-    "llm_provider": "NVIDIA",
-    "llm_model": "deepseek-ai/deepseek-v4-pro",
+    "llm_provider": "LM Studio",
+    "llm_model": "google/gemma-4-e2b",
     "embed_provider": "LM Studio",
     "embed_model": "nomic-embed-text",
     "api_keys": {
@@ -9,5 +9,6 @@
         "nvidia": "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"
     },
     "lm_studio_base_url": "http://localhost:1234/v1",
+    "ollama_base_url": "http://localhost:11434/v1",
     "auto_approve_trades": true
 }

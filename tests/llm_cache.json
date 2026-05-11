@@ -22948,5 +22948,280 @@
       "audit_summary": "[CONSERVATIVE] BTC/USDT | ANALYST: HOLD \u2192 FINAL: HOLD\nSTRATEGY: fallback | CONF: 0.00\nENTRY: 66579.97 | SL: N/A | TP: N/A | SIZE: N/A\nRSI(14): 43.2 | ATR: 977.04 | SENTIMENT: 0.50 | ADX: 19.5\nEMA200 Slope: Decreasing | MA Converging: True | MA Stack: Bearish\nVETOES: Analyst issued HOLD.",
       "valid_until": "2026-05-07T18:35:31Z"
     }
+  },
+  "2025-05-04T08:00:00+00:00": {
+    "signal": {
+      "signal": "HOLD",
+      "confidence": 0.0,
+      "strategy_used": "Bottom Bollinger Band Mean Reversion",
+      "reasoning": "The selected strategy failed to meet the necessary confluence requirements for an entry signal. Both confirmation conditions were unmet, resulting in a HOLD decision.",
+      "internal_monologue": "Step 1 identified the market regime as Trending. I evaluated the two strategy candidates. The 'Bottom Bollinger Band Mean Reversion' strategy was selected because the current price is noted to be near the lower Bollinger Band, suggesting a potential mean reversion opportunity. However, upon checking the entry conditions for this strategy against the current data: 1) RSI(14) (46.21) is not below 35, and 2) the EMA(200) slope is Decreasing, failing both confirmation criteria. Consequently, zero entry confirmations were met. The '200 MA Macro Pullback Accumulation' strategy also failed its primary entry condition as the price was outside the required 2% band of the EMA(200). Therefore, no strong signal for BUY could be generated.",
+      "entry_condition": "False",
+      "exit_condition": "price < bb_lower",
+      "valid_till": "2026-05-11T12:18:34Z",
+      "asset_name": "BTC/USDT"
+    },
+    "risk": {
+      "asset_name": "BTC/USDT",
+      "signal": "HOLD",
+      "entry_condition": "False",
+      "exit_condition": "price < bb_lower",
+      "target": 0.0,
+      "stop_loss": 0.0,
+      "position_size": 0.0,
+      "timeframe": "4h",
+      "audit_summary": "[AGGRESSIVE] BTC/USDT | ANALYST: HOLD \u2192 FINAL: HOLD\nSTRATEGY: Bottom Bollinger Band Mean Reversion | CONF: 0.00\nENTRY: 95423.2 | SL: N/A | TP: N/A | SIZE: N/A\nRSI(14): 46.2 | ATR: 791.82 | SENTIMENT: 0.50 | ADX: 17.3\nEMA200 Slope: Decreasing | MA Converging: True | MA Stack: Bullish\nVETOES: Analyst issued HOLD.",
+      "valid_until": "2026-05-11T12:21:56Z"
+    }
+  },
+  "2025-05-04T12:00:00+00:00": {
+    "signal": {
+      "signal": "HOLD",
+      "confidence": 0.0,
+      "strategy_used": "fallback",
+      "reasoning": "No available strategy cleanly satisfied the entry conditions or conflict checks based on the current market snapshot. The market is trending, but neither specific strategy provided a valid setup for immediate entry.",
+      "internal_monologue": "Step 1: Regime Check identified the market regime as Trending. Step 2 involved evaluating two strategies. The 'Bottom Bollinger Band Mean Reversion' strategy failed its entry primary condition because the price (95467.6) was above the lower Bollinger Band (95318.14), failing the requirement that the price touches or closes below it. The 'MA Twist & Convergence Continuation' strategy also failed its strict mathematical entry confirmation, as the EMA spread did not strictly adhere to the required 1% convergence range based on the provided values. Therefore, no strategy met the necessary criteria for an actionable signal.",
+      "entry_condition": "HOLD",
+      "exit_condition": "HOLD",
+      "valid_till": "2026-05-11T12:21:56Z",
+      "asset_name": "BTC/USDT"
+    },
+    "risk": {
+      "asset_name": "BTC/USDT",
+      "signal": "HOLD",
+      "entry_condition": "HOLD",
+      "exit_condition": "HOLD",
+      "target": 0.0,
+      "stop_loss": 0.0,
+      "position_size": 0.0,
+      "timeframe": "4h",
+      "audit_summary": "[CONSERVATIVE] BTC/USDT | ANALYST: HOLD \u2192 FINAL: HOLD\nSTRATEGY: fallback | CONF: 0.00\nENTRY: 95467.6 | SL: N/A | TP: N/A | SIZE: N/A\nRSI(14): 46.7 | ATR: 769.65 | SENTIMENT: 0.50 | ADX: 16.7\nEMA200 Slope: Decreasing | MA Converging: True | MA Stack: Mixed\nVETOES: Analyst issued HOLD.",
+      "valid_until": "2026-05-11T12:25:18Z"
+    }
+  },
+  "2025-05-04T16:00:00+00:00": {
+    "signal": {
+      "signal": "HOLD",
+      "confidence": 0.0,
+      "strategy_used": "fallback",
+      "reasoning": "No candidate strategies met the strict entry criteria or passed the conflict checks based on the current market data. The signal defaults to HOLD.",
+      "internal_monologue": "Step 1: The market regime is identified as Trending. The structure is Downtrend, and ATR is 743.36. Step 2: Evaluating strategies.\n\nStrategy 1 (MA Twist & Convergence Continuation): It is designed for 'Trending' markets. Conflict check involves `adx < 20`. The packet shows `adx=16.22`, which means $16.22 < 20$ is True. Since the rule states to discard if ANY conflict expression evaluates to True, this strategy is discarded.\n\nStrategy 2 (Bottom Bollinger Band Mean Reversion): It is designed for 'Trending' markets. Entry primary condition requires `price <= bb_lower and price > ema200`. Checking the values: `price` (95584.07) vs `bb_lower` (95236.36). $95584.07 \\le 95236.36$ is False. Therefore, this strategy fails its entry primary condition.\n\nSince neither strategy fits cleanly and Strategy 1 was explicitly discarded due to conflict, the fallback option is selected.",
+      "entry_condition": "HOLD",
+      "exit_condition": "HOLD",
+      "valid_till": "2026-05-11T12:25:18Z",
+      "asset_name": "BTC/USDT"
+    },
+    "risk": {
+      "asset_name": "BTC/USDT",
+      "signal": "HOLD",
+      "entry_condition": "HOLD",
+      "exit_condition": "HOLD",
+      "target": 0.0,
+      "stop_loss": 0.0,
+      "position_size": 0.0,
+      "timeframe": "4h",
+      "audit_summary": "[CONSERVATIVE] BTC/USDT | ANALYST: HOLD \u2192 FINAL: HOLD\nSTRATEGY: fallback | CONF: 0.00\nENTRY: 95584.07 | SL: N/A | TP: N/A | SIZE: N/A\nRSI(14): 48.0 | ATR: 743.36 | SENTIMENT: 0.50 | ADX: 16.2\nEMA200 Slope: Decreasing | MA Converging: True | MA Stack: Mixed\nVETOES: Analyst issued HOLD.",
+      "valid_until": "2026-05-11T12:28:09Z"
+    }
+  },
+  "2025-05-04T20:00:00+00:00": {
+    "signal": {
+      "signal": "HOLD",
+      "confidence": 0.0,
+      "strategy_used": "fallback",
+      "reasoning": "No available strategy provided sufficient confluence or met the strict entry criteria based on the current market structure and indicator states.",
+      "internal_monologue": "Step 1 (REGIME_CHECK): The detected market regime is Trending. \nStep 2 (STRATEGY_SELECTION): \n1. Bottom Bollinger Band Mean Reversion: This strategy was discarded because a conflict expression, `atr_expanding == true and is_volume_spike == false`, evaluated to True based on the packet data (atr_expanding=True, is_spike_1_5x=False). \n2. MA Twist & Convergence Continuation: The primary entry condition structured check failed. Specifically, the condition `ema20 <= ema50 * 1.01` evaluated to False (95735.51 <= 94889.29 is False), meaning the MAs are not currently satisfying the strict convergence criteria defined by the strategy. \nSince neither strategy fit cleanly, the fallback option is selected.\nStep 3 & 4 (CONFLUENCE_CHECK/SIGNAL_DECISION): No viable strategy was found to generate a strong signal. The signal defaults to HOLD.",
+      "entry_condition": "HOLD",
+      "exit_condition": "HOLD",
+      "valid_till": "2026-05-11T12:28:09Z",
+      "asset_name": "BTC/USDT"
+    },
+    "risk": {
+      "asset_name": "BTC/USDT",
+      "signal": "HOLD",
+      "entry_condition": "HOLD",
+      "exit_condition": "HOLD",
+      "target": 0.0,
+      "stop_loss": 0.0,
+      "position_size": 0.0,
+      "timeframe": "4h",
+      "audit_summary": "[CONSERVATIVE] BTC/USDT | ANALYST: HOLD \u2192 FINAL: HOLD\nSTRATEGY: fallback | CONF: 0.00\nENTRY: 94277.62 | SL: N/A | TP: N/A | SIZE: N/A\nRSI(14): 37.2 | ATR: 805.03 | SENTIMENT: 0.50 | ADX: 17.5\nEMA200 Slope: Decreasing | MA Converging: True | MA Stack: Mixed\nVETOES: Analyst issued HOLD.",
+      "valid_until": "2026-05-11T12:31:30Z"
+    }
+  },
+  "2025-05-05T00:00:00+00:00": {
+    "signal": {
+      "signal": "HOLD",
+      "confidence": 0.0,
+      "strategy_used": "fallback",
+      "reasoning": "No viable strategy could be selected because both candidates contained conflicts with the current market structure (specifically ADX < 20). The signal defaults to HOLD due to insufficient confluence.",
+      "internal_monologue": "Step 1: REGIME_CHECK identified the market regime as Volatile. Step 2 involved evaluating two strategies. Both 'ATR Expansion Breakout' and 'Volatility Breakout Scalping' were evaluated against the current market data. For both, a conflict was found in the conflicts_structured section: the condition 'adx < 20' evaluated to True because the ADX value is 19.29 (19.29 < 20). According to Step 2 instructions, if ANY expression evaluates to True for the current market, the strategy must be discarded. Therefore, neither strategy was selected, leading to a fallback decision.",
+      "entry_condition": "False",
+      "exit_condition": "False",
+      "valid_till": "2026-05-11T12:31:30Z",
+      "asset_name": "BTC/USDT"
+    },
+    "risk": {
+      "asset_name": "BTC/USDT",
+      "signal": "HOLD",
+      "entry_condition": "False",
+      "exit_condition": "False",
+      "target": 0.0,
+      "stop_loss": 0.0,
+      "position_size": 0.0,
+      "timeframe": "4h",
+      "audit_summary": "[CONSERVATIVE] BTC/USDT | ANALYST: HOLD \u2192 FINAL: HOLD\nSTRATEGY: fallback | CONF: 0.00\nENTRY: 94031.47 | SL: N/A | TP: N/A | SIZE: N/A\nRSI(14): 35.5 | ATR: 839.98 | SENTIMENT: 0.50 | ADX: 19.3\nEMA200 Slope: Increasing | MA Converging: True | MA Stack: Mixed\nVETOES: Analyst issued HOLD.",
+      "valid_until": "2026-05-11T12:34:26Z"
+    }
+  },
+  "2025-05-05T04:00:00+00:00": {
+    "signal": {
+      "signal": "HOLD",
+      "confidence": 0.0,
+      "strategy_used": "200 MA Macro Pullback Accumulation",
+      "reasoning": "The strategy was selected because the other candidate failed a mandatory conflict check. Although only one confirmation condition was met, the overall signal strength is low, leading to a HOLD decision.",
+      "internal_monologue": "Step 1 (REGIME_CHECK): The market regime is Trending. \nStep 2 (STRATEGY_SELECTION): Candidate 1 ('Bottom Bollinger Band Mean Reversion') was immediately discarded during conflict checking because the expression 'atr_expanding == true and is_volume_spike == false' evaluated to True, violating the rule that any conflict must result in discarding the strategy. Candidate 2 ('200 MA Macro Pullback Accumulation') was selected as it passed the initial regime check and conflict checks.\nStep 3 (CONFLUENCE_CHECK): Evaluating confirmation conditions for Candidate 2:\n1. EMA(200) slope is Increasing: True (EMA(200) slope is Increasing).\n2. Capitulation volume spike present (`is_capitulation_spike == true`): False (is_capitulation_2x is False, and the condition requires this to be true).\n3. Sentiment score is below 0.25: False (Sentiment is 0.5).\nOnly 1 out of 3 conditions was met.\nStep 4 (SIGNAL_DECISION): Since fewer than half the entry confirmations were met, the signal is HOLD.",
+      "entry_condition": "False",
+      "exit_condition": "price < ema200",
+      "valid_till": "2026-05-11T12:34:26Z",
+      "asset_name": "BTC/USDT"
+    },
+    "risk": {
+      "asset_name": "BTC/USDT",
+      "signal": "HOLD",
+      "entry_condition": "False",
+      "exit_condition": "price < ema200",
+      "target": 0.0,
+      "stop_loss": 0.0,
+      "position_size": 0.0,
+      "timeframe": "4h",
+      "audit_summary": "[CONSERVATIVE] BTC/USDT | ANALYST: HOLD \u2192 FINAL: HOLD\nSTRATEGY: 200 MA Macro Pullback Accumulation | CONF: 0.00\nENTRY: 94761.91 | SL: N/A | TP: N/A | SIZE: N/A\nRSI(14): 43.4 | ATR: 837.46 | SENTIMENT: 0.50 | ADX: 20.9\nEMA200 Slope: Increasing | MA Converging: True | MA Stack: Mixed\nVETOES: Analyst issued HOLD.",
+      "valid_until": "2026-05-11T12:37:48Z"
+    }
+  },
+  "2025-05-05T08:00:00+00:00": {
+    "signal": {
+      "signal": "HOLD",
+      "confidence": 0.0,
+      "strategy_used": "fallback",
+      "reasoning": "No available strategy met the strict entry criteria defined by the market data. Both candidate strategies failed their primary entry conditions based on the current price position relative to Bollinger Bands and the EMA(200).",
+      "internal_monologue": "Step 1: The market regime is detected as Trending. The price action shows a slight downtrend (pct_change_50=-0.03%).\nStep 2: Evaluating strategies:\nCandidate 1 (Bottom Bollinger Band Mean Reversion): Entry primary condition requires `price <= bb_lower` and `price > ema200`. Current values are price=94038.18, bb_lower=93968.79, ema200=89710.77. The condition `94038.18 <= 93968.79` is False. This strategy is not eligible for entry.\nCandidate 2 (200 MA Macro Pullback Accumulation): Entry primary condition requires the price to be within 2% of EMA(200). The range is [87916.54, 91495.00]. The current price (94038.18) falls outside this range. This strategy is not eligible for entry.\nSince neither strategy meets the primary entry conditions based on the current market state, the fallback option is selected.\nStep 3 & 4: No further checks are necessary as no strategy was chosen.",
+      "entry_condition": "False",
+      "exit_condition": "False",
+      "valid_till": "2026-05-11T12:37:48Z",
+      "asset_name": "BTC/USDT"
+    },
+    "risk": {
+      "asset_name": "BTC/USDT",
+      "signal": "HOLD",
+      "entry_condition": "False",
+      "exit_condition": "False",
+      "target": 0.0,
+      "stop_loss": 0.0,
+      "position_size": 0.0,
+      "timeframe": "4h",
+      "audit_summary": "[CONSERVATIVE] BTC/USDT | ANALYST: HOLD \u2192 FINAL: HOLD\nSTRATEGY: fallback | CONF: 0.00\nENTRY: 94038.18 | SL: N/A | TP: N/A | SIZE: N/A\nRSI(14): 38.4 | ATR: 842.65 | SENTIMENT: 0.50 | ADX: 22.6\nEMA200 Slope: Increasing | MA Converging: True | MA Stack: Mixed\nVETOES: Analyst issued HOLD.",
+      "valid_until": "2026-05-11T12:40:40Z"
+    }
+  },
+  "2025-05-05T12:00:00+00:00": {
+    "signal": {
+      "signal": "HOLD",
+      "confidence": 0.0,
+      "strategy_used": "ATR Expansion Breakout",
+      "reasoning": "The ATR Expansion Breakout strategy was selected because the current market regime is Volatile, which aligns with its primary requirement (Volatile). However, strict entry confirmation conditions failed as the price did not yet break the 20-day Donchian range.",
+      "internal_monologue": "Step 1: Regime Check identified the market regime as Volatile. The price is 93770.31. Key metrics include ATR=848.03, ADX=24.45, and atr_expanding=True. Step 2: Strategy Selection. Both candidates were checked. 'ATR Expansion Breakout' was selected as it aligns with the confirmed volatility expansion (atr_expanding == true). Entry primary conditions required atr_expanding == true (satisfied) and price breaking Donchian levels (not satisfied based on current price relative to high_20/low_20). Conflicts were checked: atr_expanding == false (False), adx < 20 (False, as adx=24.45), is_volume_spike == false (assumed False due to lack of explicit spike flag). Step 3: Confluence Check. The structured entry condition for the chosen strategy failed because the price did not break the 20-day Donchian range (93770.31 is between low_20=93514.1 and high_20=97895.68). Therefore, zero entry confirmation conditions were met based on structured evaluation. Step 4: Signal Decision. Since no entry conditions were met, the signal defaults to HOLD. Step 5: Synthesis. Entry and exit conditions are synthesized mathematically based on the chosen strategy's rules.",
+      "entry_condition": "atr_expanding == true and (price > high_20 or price < low_20)",
+      "exit_condition": "atr_expanding == false or price < high_20",
+      "valid_till": "2026-05-11T12:40:40Z",
+      "asset_name": "BTC/USDT"
+    },
+    "risk": {
+      "asset_name": "BTC/USDT",
+      "signal": "HOLD",
+      "entry_condition": "atr_expanding == true and (price > high_20 or price < low_20)",
+      "exit_condition": "atr_expanding == false or price < high_20",
+      "target": 0.0,
+      "stop_loss": 0.0,
+      "position_size": 0.0,
+      "timeframe": "4h",
+      "audit_summary": "[AGGRESSIVE] BTC/USDT | ANALYST: HOLD \u2192 FINAL: HOLD\nSTRATEGY: ATR Expansion Breakout | CONF: 0.00\nENTRY: 93770.31 | SL: N/A | TP: N/A | SIZE: N/A\nRSI(14): 36.7 | ATR: 848.03 | SENTIMENT: 0.50 | ADX: 24.4\nEMA200 Slope: Increasing | MA Converging: True | MA Stack: Mixed\nVETOES: Analyst issued HOLD.",
+      "valid_until": "2026-05-11T12:44:14Z"
+    }
+  },
+  "2025-05-05T16:00:00+00:00": {
+    "signal": {
+      "signal": "HOLD",
+      "confidence": 0.0,
+      "strategy_used": "fallback",
+      "reasoning": "Both candidate strategies were discarded due to hard conflicts identified in the market data packet. The strict conflict rules resulted in zero viable signals.",
+      "internal_monologue": "Step 1: Regime Check. The detected regime is Trending. This matches the strategy primary requirement for both candidates. Step 2: Strategy Selection. Candidate 1 (Bottom Bollinger Band Mean Reversion) conflicts include `atr_expanding == true and is_volume_spike == false`. Since `atr_expanding` is True and `is_volume_spike` is False in the current packet, this conflict evaluates to True, leading to immediate discard. Candidate 2 (200 MA Macro Pullback Accumulation) conflicts include `is_capitulation_spike == false`. Since `is_capitulation_spike` is False, this expression evaluates to True, also leading to immediate discard. Therefore, no strategy fits cleanly based on the conflict rules.",
+      "entry_condition": "False",
+      "exit_condition": "False",
+      "valid_till": "2026-05-11T12:44:14Z",
+      "asset_name": "BTC/USDT"
+    },
+    "risk": {
+      "asset_name": "BTC/USDT",
+      "signal": "HOLD",
+      "entry_condition": "False",
+      "exit_condition": "False",
+      "target": 0.0,
+      "stop_loss": 0.0,
+      "position_size": 0.0,
+      "timeframe": "4h",
+      "audit_summary": "[CONSERVATIVE] BTC/USDT | ANALYST: HOLD \u2192 FINAL: HOLD\nSTRATEGY: fallback | CONF: 0.00\nENTRY: 94347.17 | SL: N/A | TP: N/A | SIZE: N/A\nRSI(14): 42.6 | ATR: 868.92 | SENTIMENT: 0.50 | ADX: 25.2\nEMA200 Slope: Increasing | MA Converging: True | MA Stack: Mixed\nVETOES: Analyst issued HOLD.",
+      "valid_until": "2026-05-11T12:47:39Z"
+    }
+  },
+  "2025-05-05T20:00:00+00:00": {
+    "signal": {
+      "signal": "HOLD",
+      "confidence": 0.0,
+      "strategy_used": "fallback",
+      "reasoning": "No available strategy cleanly satisfied the entry conditions due to hard conflicts present in the current market structure (ADX > 25 and ATR expansion).",
+      "internal_monologue": "Step 1: Regime Check. The detected regime is 'Sideways'.\nStep 2: Strategy Selection. Both candidates were evaluated.\nCandidate 1 (Donchian Range Oscillation): Primary regime matches ('Sideways'). Entry conflicts found: `adx > 25` (ADX=25.16) and `atr_expanding == true`. Candidate 2 (Bollinger Bands + RSI Extremes): Primary regime matches ('Sideways'). Entry conflicts found: `adx > 25` (ADX=25.16) and `atr_expanding == true`. Since both strategies contain hard conflicts based on the current market state, neither is selected. Fallback is chosen.\nStep 3 & 4: Confluence Check/Signal Decision. No strategy was selected, leading to a HOLD signal with zero confidence.",
+      "entry_condition": "HOLD",
+      "exit_condition": "HOLD",
+      "valid_till": "2026-05-11T12:47:39Z",
+      "asset_name": "BTC/USDT"
+    },
+    "risk": {
+      "asset_name": "BTC/USDT",
+      "signal": "HOLD",
+      "entry_condition": "HOLD",
+      "exit_condition": "HOLD",
+      "target": 0.0,
+      "stop_loss": 0.0,
+      "position_size": 0.0,
+      "timeframe": "4h",
+      "audit_summary": "[CONSERVATIVE] BTC/USDT | ANALYST: HOLD \u2192 FINAL: HOLD\nSTRATEGY: fallback | CONF: 0.00\nENTRY: 94733.68 | SL: N/A | TP: N/A | SIZE: N/A\nRSI(14): 46.2 | ATR: 901.35 | SENTIMENT: 0.50 | ADX: 25.2\nEMA200 Slope: Increasing | MA Converging: True | MA Stack: Mixed\nVETOES: Analyst issued HOLD.",
+      "valid_until": "2026-05-11T12:49:48Z"
+    }
+  },
+  "2025-05-06T00:00:00+00:00": {
+    "signal": {
+      "signal": "HOLD",
+      "confidence": 0.0,
+      "strategy_used": "fallback",
+      "reasoning": "Both candidate strategies were immediately discarded due to hard conflicts with the current market indicators (ADX > 25 and ATR expanding == True). Therefore, no actionable signal could be derived.",
+      "internal_monologue": "Step 1: The market regime detected is 'Sideways'.\nStep 2: Evaluating strategy candidates.\nStrategy 1 (Donchian Range Oscillation): Primary condition requires price touching Donchian extremes or ADX < 25. Current price (94454.01) is not near the 10-day Donchian range (High_10=95758.08, Low_10=93514.1), and ADX (25.14) is not less than 25. Conflict check found: adx > 25 (25.14 > 25) and atr_expanding == true. This strategy is discarded.\nStrategy 2 (Bollinger Bands + RSI Extremes): Primary condition requires price crossing BB extremes. Current price (94454.01) is inside the BB(40) range [93407.46, 97525.62]. Conflict check found: adx > 25 (25.14 > 25) and atr_expanding == true. This strategy is discarded.\nSince both strategies contain conflicts based on the current market metrics (ADX=25.14, ATR expanding=True), neither can be selected. Fallback is required.",
+      "entry_condition": "False",
+      "exit_condition": "False",
+      "valid_till": "2026-05-11T12:49:48Z",
+      "asset_name": "BTC/USDT"
+    },
+    "risk": {
+      "asset_name": "BTC/USDT",
+      "signal": "HOLD",
+      "entry_condition": "False",
+      "exit_condition": "False",
+      "target": 0.0,
+      "stop_loss": 0.0,
+      "position_size": 0.0,
+      "timeframe": "4h",
+      "audit_summary": "[CONSERVATIVE] BTC/USDT | ANALYST: HOLD \u2192 FINAL: HOLD\nSTRATEGY: fallback | CONF: 0.00\nENTRY: 94454.01 | SL: N/A | TP: N/A | SIZE: N/A\nRSI(14): 44.0 | ATR: 902.27 | SENTIMENT: 0.50 | ADX: 25.1\nEMA200 Slope: Increasing | MA Converging: True | MA Stack: Mixed\nVETOES: Analyst issued HOLD.",
+      "valid_until": "2026-05-11T12:52:48Z"
+    }
   }
 }

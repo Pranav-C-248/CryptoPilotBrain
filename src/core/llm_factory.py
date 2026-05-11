@@ -41,6 +41,14 @@ class LLMFactory:
                 model=model,
                 temperature=0
             )
+        elif provider == "Ollama":
+            base_url = settings.get("ollama_base_url", "http://localhost:11434/v1")
+            return ChatOpenAI(
+                base_url=base_url,
+                api_key="ollama",
+                model=model,
+                temperature=0
+            )
         else:
             raise ValueError(f"Unsupported LLM provider: {provider}")
 
@@ -77,6 +85,14 @@ class LLMFactory:
                 base_url="https://integrate.api.nvidia.com/v1",
                 api_key=api_key,
                 model=model
+            )
+        elif provider == "Ollama":
+            base_url = settings.get("ollama_base_url", "http://localhost:11434/v1")
+            return OpenAIEmbeddings(
+                base_url=base_url,
+                api_key="ollama",
+                model=model,
+                check_embedding_ctx_length=False
             )
         else:
             raise ValueError(f"Unsupported Embeddings provider: {provider}")

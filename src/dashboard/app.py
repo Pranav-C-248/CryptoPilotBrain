@@ -63,7 +63,7 @@ with st.sidebar:
         settings = ConfigManager.load_settings()
         
         # Providers list
-        providers = ["LM Studio", "OpenAI", "Gemini", "NVIDIA"]
+        providers = ["LM Studio", "Ollama", "OpenAI", "Gemini", "NVIDIA"]
         
         import requests
         
@@ -79,10 +79,35 @@ with st.sidebar:
                 pass
             return []
 
-        def get_model_options(provider, base_url, is_embedding=False):
+        @st.cache_data(ttl=10)
+        def fetch_ollama_models(base_url):
+            try:
+                # Ollama OpenAI-compat endpoint
+                url = f"{base_url}/models"
+                resp = requests.get(url, timeout=2)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    return [m['id'] for m in data.get('data', [])]
+            except Exception:
+                pass
+            # Fallback: try the native Ollama API
+            try:
+                native_url = base_url.replace("/v1", "").rstrip("/") + "/api/tags"
+                resp = requests.get(native_url, timeout=2)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    return [m['name'] for m in data.get('models', [])]
+            except Exception:
+                pass
+            return []
+
+        def get_model_options(provider, base_url, ollama_url, is_embedding=False):
             if provider == "LM Studio":
                 models = fetch_lmstudio_models(base_url)
                 return models if models else (["nomic-embed-text"] if is_embedding else ["gemma4:e2b"])
+            elif provider == "Ollama":
+                models = fetch_ollama_models(ollama_url)
+                return models if models else (["nomic-embed-text"] if is_embedding else ["llama3.1", "gemma3", "qwen3", "deepseek-r1", "mistral", "phi4"])
             elif provider == "OpenAI":
                 return ["text-embedding-3-small", "text-embedding-3-large", "text-embedding-ada-002"] if is_embedding else ["gpt-4.5-turbo", "gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "o1", "o1-mini", "o3-mini", "gpt-3.5-turbo"]
             elif provider == "Gemini":
@@ -93,11 +118,12 @@ with st.sidebar:
 
         st.markdown("**API Keys & URLs**")
         lm_url = st.text_input("LM Studio Base URL", value=settings.get("lm_studio_base_url", "http://localhost:1234/v1"))
+        ollama_url = st.text_input("Ollama Base URL", value=settings.get("ollama_base_url", "http://localhost:11434/v1"))
         
         st.markdown("**LLM Backend**")
         llm_prov = st.selectbox("Provider", providers, index=providers.index(settings.get("llm_provider", "LM Studio")), key="llm_prov")
         
-        llm_opts = get_model_options(llm_prov, lm_url, is_embedding=False)
+        llm_opts = get_model_options(llm_prov, lm_url, ollama_url, is_embedding=False)
         current_llm = settings.get("llm_model", "gemma4:e2b")
         if current_llm not in llm_opts: llm_opts = [current_llm] + llm_opts
         
@@ -110,7 +136,7 @@ with st.sidebar:
         st.markdown("**Embeddings Backend**")
         embed_prov = st.selectbox("Provider", providers, index=providers.index(settings.get("embed_provider", "LM Studio")), key="embed_prov")
         
-        embed_opts = get_model_options(embed_prov, lm_url, is_embedding=True)
+        embed_opts = get_model_options(embed_prov, lm_url, ollama_url, is_embedding=True)
         current_embed = settings.get("embed_model", "nomic-embed-text")
         if current_embed not in embed_opts: embed_opts = [current_embed] + embed_opts
         
@@ -125,8 +151,8 @@ with st.sidebar:
         
         # Determine which keys to show based on selected providers
         required_keys = set()
-        if llm_prov != "LM Studio": required_keys.add(llm_prov.lower())
-        if embed_prov != "LM Studio": required_keys.add(embed_prov.lower())
+        if llm_prov not in ("LM Studio", "Ollama"): required_keys.add(llm_prov.lower())
+        if embed_prov not in ("LM Studio", "Ollama"): required_keys.add(embed_prov.lower())
         
         new_keys = api_keys.copy()
         if "openai" in required_keys:
@@ -146,6 +172,7 @@ with st.sidebar:
             settings["embed_provider"] = embed_prov
             settings["embed_model"] = embed_mod
             settings["lm_studio_base_url"] = lm_url
+            settings["ollama_base_url"] = ollama_url
             settings["api_keys"] = new_keys
             
             ConfigManager.save_settings(settings)

@@ -14,7 +14,8 @@ DEFAULT_SETTINGS = {
         "gemini": "",
         "nvidia": ""
     },
-    "lm_studio_base_url": "http://localhost:1234/v1"
+    "lm_studio_base_url": "http://localhost:1234/v1",
+    "ollama_base_url": "http://localhost:11434/v1"
 }
 
 class ConfigManager:
