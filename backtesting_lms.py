@@ -24,40 +24,46 @@ from src.agents.risk_manager import RiskManagerAgent
 from src.schema.models import AnalystSignal
 from src.agents.risk_manager import RiskAssessment
 
-CACHE_FILE = os.path.join(project_root, "tests", "llm_cache.json")
 os.makedirs(os.path.join(project_root, "tests", "logs"), exist_ok=True)
 
 class BacktestEngine:
-    def __init__(self, initial_balance=10000):
+    def __init__(self, initial_balance=10000, data_file="tests/BTCUSDT_4h_historical.csv"):
         self.initial_balance = initial_balance
         self.balance = initial_balance
         self.portfolio = [] # Active trades
         self.trade_history = [] # Closed trades
         self.equity_curve = [] # Track balance over time
         
+        # Extract asset name from data filename (e.g. "BTCUSDT_4h_historical.csv" -> "BTCUSDT")
+        data_basename = os.path.splitext(os.path.basename(data_file))[0]
+        self.asset_name = data_basename.split("_")[0]
+        
         self.kb = TradingKnowledgeBase()
         self.analyst = AnalystAgent(knowledge_base=self.kb)
         self.risk_mgr = RiskManagerAgent(total_equity=initial_balance)
+        
+        # Cache and log files namespaced by asset
+        self.cache_file = os.path.join(project_root, "tests", f"llm_cache_{self.asset_name}.json")
         self.cache = self._load_cache()
         log_ts = datetime.now().strftime('%Y%m%d_%H%M%S')
-        self.log_file = os.path.join(project_root, "tests", "logs", f"backtest_{log_ts}.txt")
-        self.trade_log_file = os.path.join(project_root, "tests", "logs", f"backtest_{log_ts}_trade.txt")
+        self.log_file = os.path.join(project_root, "tests", "logs", f"backtest_{log_ts}_{self.asset_name}.txt")
+        self.trade_log_file = os.path.join(project_root, "tests", "logs", f"backtest_{log_ts}_{self.asset_name}_trade.txt")
         
         # Initialize log files
-        start_header = f"=== BACKTEST START: {datetime.now(timezone.utc).isoformat()} ===\n"
+        start_header = f"=== BACKTEST START: {datetime.now(timezone.utc).isoformat()} | Asset: {self.asset_name} ===\n"
         with open(self.log_file, "w") as f:
             f.write(start_header)
         with open(self.trade_log_file, "w") as f:
             f.write(start_header)
         
     def _load_cache(self):
-        if os.path.exists(CACHE_FILE):
-            with open(CACHE_FILE, "r") as f:
+        if os.path.exists(self.cache_file):
+            with open(self.cache_file, "r") as f:
                 return json.load(f)
         return {}
         
     def _save_cache(self):
-        with open(CACHE_FILE, "w") as f:
+        with open(self.cache_file, "w") as f:
             json.dump(self.cache, f, indent=2)
 
     def _log_step(self, timestamp, price, signal, verdict):
@@ -311,7 +317,7 @@ class BacktestEngine:
             # print("2 step")
             packet = MarketDataProcessor.get_context_packet(df, i, window=window)
             if not packet: continue
-            packet['asset_name'] = "BTC/USDT"
+            packet['asset_name'] = self.asset_name
             
             # 3. Cache / Agent Cycle
             print("3 step")
@@ -484,7 +490,7 @@ if __name__ == "__main__":
     parser.add_argument("--data", type=str, default="tests/BTCUSDT_4h_historical.csv", help="Path to historical data CSV")
     args = parser.parse_args()
 
-    engine = BacktestEngine(initial_balance=100000)
+    engine = BacktestEngine(initial_balance=100000, data_file=args.data)
     
     # 1. Fetch & prep data
     csv_path = os.path.join(project_root, args.data)

@@ -3,7 +3,7 @@ import requests
 from datetime import datetime
 
 class BinancePublicClient:
-    BASE_URL = "https://api.binance.com/api/v3"
+    BASE_URL = "https://api.binance.us/api/v3"
 
     def __init__(self):
         pass

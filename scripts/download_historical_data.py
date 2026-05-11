@@ -19,7 +19,7 @@ def fetch_historical_data(symbol="BTCUSDT", interval="4h", start_year=2026, star
     start_time = int(datetime(start_year, start_month, start_day, tzinfo=timezone.utc).timestamp() * 1000)
     
     all_klines = []
-    url = "https://api.binance.com/api/v3/klines"
+    url = "https://api.binance.us/api/v3/klines"
     
     while start_time < end_time:
         params = {
@@ -67,11 +67,20 @@ def fetch_historical_data(symbol="BTCUSDT", interval="4h", start_year=2026, star
     return df
 
 if __name__ == "__main__":
-    df = fetch_historical_data()
+    import argparse
+    parser = argparse.ArgumentParser(description="Download historical kline data from Binance")
+    parser.add_argument("--asset", type=str, default="BTCUSDT",
+                        help="Binance symbol to fetch (e.g. BTCUSDT, ETHUSDT). Default: BTCUSDT")
+    parser.add_argument("--interval", type=str, default="4h",
+                        help="Candle interval (e.g. 1h, 4h, 1d). Default: 4h")
+    args = parser.parse_args()
+
+    symbol = args.asset.upper()
+    df = fetch_historical_data(symbol=symbol, interval=args.interval)
     
     output_dir = os.path.join(project_root, "tests")
     os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, "BTCUSDT_4h_historical.csv")
+    output_path = os.path.join(output_dir, f"{symbol}_{args.interval}_historical.csv")
     
     df.to_csv(output_path, index=False)
     print(f"Successfully saved full history to {output_path}")

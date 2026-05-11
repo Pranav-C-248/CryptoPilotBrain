@@ -181,7 +181,7 @@ def compute_metrics(eq_df: pd.DataFrame, trades_df: pd.DataFrame, initial_balanc
 
     # -- Returns (based on total equity, not just cash balance) --
     # Use pct_change and drop the first NaN row to avoid diluting mean/std
-    eq_df["returns"] = eq_df["balance"].pct_change()
+    eq_df["returns"] = eq_df["total_equity"].pct_change()
     eq_df["asset_returns"] = eq_df["price"].pct_change()
 
     # -- Sharpe Ratio (annualized) --
