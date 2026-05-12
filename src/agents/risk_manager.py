@@ -101,14 +101,14 @@ STRATEGY_REGISTRY = {
         "guards":       ["atr_expanding"],
     },
 
-    # ── Conservative — Turtle: profits run, no fixed target ──────────────────
+    # ── Conservative — Turtle: fixed R:R target ────────────────────────────────
     "Turtle Strategy (System 1 - 20-Day Breakout)": {
-        "fixed_target": False,
+        "fixed_target": True,
         "rsi_veto":     True,
         "guards":       [],
     },
     "Turtle Strategy (System 2 - 55-Day Macro Breakout)": {
-        "fixed_target": False,
+        "fixed_target": True,
         "rsi_veto":     True,
         "guards":       [],
     },
@@ -194,6 +194,7 @@ class RiskManagerAgent:
     CON_MAX_POSITION_PCT    = 0.15
     CON_ATR_STOP_MULT       = 2.0
     CON_ATR_VOLATILITY_CAP  = 0.15
+    CON_RISK_REWARD         = 2.0   # default R:R for Conservative trending strategies
     CON_SIDEWAYS_RR         = 1.5   # tighter R:R for mean reversion strategies
 
     def __init__(self, total_equity: float, timeframe_hours: int = 4):
@@ -544,6 +545,7 @@ class RiskManagerAgent:
             confidence: float,          
         ) -> tuple[float, float]:
         """
+        Every strategy now gets a fixed target derived from its risk-reward ratio.
         Stop widens and target shrinks proportionally as confidence falls.
         At confidence=1.0 → no adjustment.
         At confidence=0.5 (floor) → stop 50% wider, target 50% smaller.
@@ -569,27 +571,34 @@ class RiskManagerAgent:
                 # Proxy target based on BASE stop distance — not the widened one
                 target_dist = (2.0 * base_stop_dist) * target_conf_mult
 
-            elif not fixed_target:
-                target_dist = 0.0  # Turtle — profits run, confidence irrelevant
+            elif strategy_name in (
+                "Donchian Range Oscillation",
+                "RSI Divergence Fade",
+                "EMA20 Mean Reversion",
+            ):
+                # Sideways mean reversion — tighter R:R targeting known
+                # structural levels (EMA20, BB midline, Donchian midline).
+                target_dist = (self.CON_SIDEWAYS_RR * base_stop_dist) * target_conf_mult
 
             else:
-                target_dist = (self.CON_SIDEWAYS_RR * base_stop_dist) * target_conf_mult
-    
+                # All other Conservative strategies (incl. Turtle) — fixed R:R target.
+                target_dist = (self.CON_RISK_REWARD * base_stop_dist) * target_conf_mult
+
         else:  # Aggressive
             base_stop_dist = self.AGG_ATR_STOP_MULT * atr
             stop_dist      = base_stop_dist * stop_conf_mult
             target_dist    = (self.AGG_RISK_REWARD * base_stop_dist) * target_conf_mult
 
-        # ── Minimum stop clamp (fix #2 — see below) ───────────────────────────────
+        # ── Minimum stop clamp ─────────────────────────────────────────────────────
         min_stop = entry_price * self.MIN_STOP_PCT
         stop_dist = max(stop_dist, min_stop)
 
         if signal == "BUY":
             stop_loss = entry_price - stop_dist
-            target    = (entry_price + target_dist) if fixed_target else 0.0
+            target    = entry_price + target_dist
         else:
             stop_loss = entry_price + stop_dist
-            target    = (entry_price - target_dist) if fixed_target else 0.0
+            target    = entry_price - target_dist
 
         return stop_loss, target
 
@@ -705,7 +714,7 @@ class RiskManagerAgent:
             stop_loss_str = "N/A"
             size_str      = "N/A"
         else:
-            target_str    = f"{target:.4f}" if target > 0 else "OPEN (profits run)"
+            target_str    = f"{target:.4f}"
             stop_loss_str = f"{stop_loss:.4f}"
             size_str      = f"${position_size:.2f}"
 
