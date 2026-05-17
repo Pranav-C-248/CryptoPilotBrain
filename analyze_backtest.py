@@ -5,8 +5,8 @@ Parses existing backtest log files to compute advanced performance metrics
 and generate visual reports WITHOUT re-running the simulation.
 
 Usage:
-    python analyze_backtest.py                          # auto-picks latest log
-    python analyze_backtest.py --log backtest_20260507_200708   # specific log
+    python analyze_backtest.py                                        # auto-picks latest log
+    python analyze_backtest.py --log-name backtest_20260507_200708    # specific log
 
 Outputs:
     tests/analysis/advanced_metrics.csv
@@ -161,12 +161,31 @@ def parse_trade_log(log_base: str) -> pd.DataFrame:
 # ---------------------------------------------
 def compute_metrics(eq_df: pd.DataFrame, trades_df: pd.DataFrame, initial_balance: float) -> dict:
     """Compute all advanced performance metrics from parsed data.
-    Uses total_equity (balance + open position value) for all calculations."""
+    Uses total_equity (balance + open position value) for all calculations.
+    Auto-detects candle interval from data for correct annualization."""
     metrics = {}
 
     final_equity = eq_df["total_equity"].iloc[-1]
     initial_price = eq_df["price"].iloc[0]
     final_price = eq_df["price"].iloc[-1]
+
+    # -- Backtest Duration --
+    total_seconds = (eq_df["timestamp"].iloc[-1] - eq_df["timestamp"].iloc[0]).total_seconds()
+    total_days = total_seconds / 86400
+    metrics["Backtest Duration (Days)"] = round(total_days, 1)
+    metrics["Data Points"] = len(eq_df)
+
+    # -- Auto-detect candle interval for annualization --
+    # Compute median time delta between consecutive data points
+    if len(eq_df) >= 2:
+        time_deltas = eq_df["timestamp"].diff().dropna()
+        median_delta_hours = time_deltas.median().total_seconds() / 3600
+        candles_per_day = 24 / median_delta_hours if median_delta_hours > 0 else 6
+    else:
+        candles_per_day = 6  # fallback: assume 4h candles
+    periods_per_year = candles_per_day * 365
+    metrics["Detected Candle Interval (h)"] = round(24 / candles_per_day, 2)
+    metrics["Periods Per Year"] = int(round(periods_per_year))
 
     # -- Basic --
     metrics["Initial Balance"] = initial_balance
@@ -185,8 +204,6 @@ def compute_metrics(eq_df: pd.DataFrame, trades_df: pd.DataFrame, initial_balanc
     eq_df["asset_returns"] = eq_df["price"].pct_change()
 
     # -- Sharpe Ratio (annualized) --
-    # 4h candles -> 6 per day -> 6 * 365 = 2190 periods/year
-    periods_per_year = 6 * 365
     clean_returns = eq_df["returns"].dropna()
     mean_ret = clean_returns.mean()
     std_ret = clean_returns.std()
@@ -230,7 +247,6 @@ def compute_metrics(eq_df: pd.DataFrame, trades_df: pd.DataFrame, initial_balanc
         metrics["Max Drawdown Duration"] = "N/A"
 
     # -- Calmar Ratio (annualized return / max drawdown) --
-    total_days = (eq_df["timestamp"].iloc[-1] - eq_df["timestamp"].iloc[0]).total_seconds() / 86400
     # Use CAGR (compound annualized growth rate) for proper annualization
     if total_days > 0 and final_equity > 0:
         annualized_return_pct = ((final_equity / initial_balance) ** (365 / total_days) - 1) * 100
@@ -560,18 +576,30 @@ def generate_metrics_html(metrics: dict, log_base: str) -> str:
 # 7. MAIN
 # ---------------------------------------------
 def main():
+    global LOGS_DIR, OUTPUT_DIR
     parser = argparse.ArgumentParser(description="Analyze backtest results from log files")
-    parser.add_argument("--log", type=str, default=None,
+    parser.add_argument("--log-name", type=str, default=None,
                         help="Log base name (e.g. backtest_20260507_200708). Defaults to latest.")
     parser.add_argument("--balance", type=float, default=100000,
                         help="Initial balance used in the backtest (default: 100000)")
-    args = parser.parse_args()
+    parser.add_argument("--logs-dir", type=str, default=None,
+                        help="Directory containing the logs")
+    parser.add_argument("--output-dir", type=str, default=None,
+                        help="Directory to save the analysis outputs")
+    args, _ = parser.parse_known_args()
+
+    if args.logs_dir:
+        LOGS_DIR = os.path.abspath(args.logs_dir)
+    if args.output_dir:
+        OUTPUT_DIR = os.path.abspath(args.output_dir)
 
     # Discover log
-    log_base = args.log or find_latest_log_base()
+    log_base = args.log_name or find_latest_log_base()
     print(f"\n{'='*60}")
     print(f"[ANALYZE] {log_base}")
     print(f"{'='*60}")
+    print(f"Logs Dir: {LOGS_DIR}")
+    print(f"Output Dir: {OUTPUT_DIR}")
 
     # Parse logs
     print("\nParsing state log...")

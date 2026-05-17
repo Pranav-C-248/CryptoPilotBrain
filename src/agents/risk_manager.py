@@ -180,6 +180,7 @@ class RiskManagerAgent:
     SENTIMENT_BEAR_CEIL     = 0.78
     CONFIDENCE_LEVEL_SENSITIVITY = 1.0
     MIN_STOP_PCT = 0.003    # Stop distance floor: 0.3% of entry price
+    MIN_RISK_REWARD = 1.5   # Hard floor: reward must be ≥ 1.5× risk (1:1.5)
 
     # ── Aggressive Strategy Parameters ───────────────────────────────────────
     AGG_BASE_RISK_PCT       = 0.02
@@ -592,6 +593,14 @@ class RiskManagerAgent:
         # ── Minimum stop clamp ─────────────────────────────────────────────────────
         min_stop = entry_price * self.MIN_STOP_PCT
         stop_dist = max(stop_dist, min_stop)
+
+        # ── Enforce minimum R:R floor (1:1.5) ─────────────────────────────────────
+        # After all confidence scaling, guarantee that for every dollar risked
+        # (stop_dist), the reward (target_dist) is at least 1.5× that risk.
+        # This prevents low-confidence scaling from creating bad R:R trades.
+        min_target_dist = self.MIN_RISK_REWARD * stop_dist
+        if target_dist < min_target_dist:
+            target_dist = min_target_dist
 
         if signal == "BUY":
             stop_loss = entry_price - stop_dist

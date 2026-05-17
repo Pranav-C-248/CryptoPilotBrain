@@ -19,7 +19,7 @@ engine = PaperTradingEngine()
 def run_dashboard():
     """Starts the Streamlit dashboard."""
     print("Starting CryptoPilot Dashboard...")
-    app_path = os.path.join(project_root, "src", "dashboard", "app.py")
+    app_path = os.path.join(project_root, "src", "dashboard", "Dashboard.py")
     subprocess.run(["streamlit", "run", app_path])
 
 def background_task():

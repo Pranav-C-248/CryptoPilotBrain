@@ -6,8 +6,10 @@ from datetime import datetime, timezone
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 sys.path.insert(0, project_root)
 
-from src.tools.binance_client import BinancePublicClient
+from src.tools.exchange_client import ExchangeClient
+from src.tools.live_data import LiveDataCache
 from src.tools.indicators import MarketDataProcessor
+from src.core.config_manager import ConfigManager
 from src.agents.analyst_lms import AnalystAgent
 from src.agents.risk_manager import RiskManagerAgent
 from src.core.knowledge_base_lms import TradingKnowledgeBase
@@ -21,7 +23,10 @@ class MainDataAgent:
     and passes approved trades to the Paper Trading Engine.
     """
     def __init__(self):
-        self.client = BinancePublicClient()
+        settings = ConfigManager.load_settings()
+        self.active_exchange = settings.get("active_exchange", "binance")
+        self.client = ExchangeClient(self.active_exchange)
+        self.live_cache = LiveDataCache()
         self.kb = TradingKnowledgeBase()
         self.analyst = AnalystAgent(knowledge_base=self.kb)
         self.rm = RiskManagerAgent(total_equity=10000.0, timeframe_hours=4)
@@ -53,7 +58,12 @@ class MainDataAgent:
             
         try:
             print(f"Analyzing {symbol} (4h)...")
-            df = self.client.get_historical_klines(symbol, "4h", limit=250)
+            
+            # Use LiveDataCache to avoid rate limits; fallback to REST if cache is empty
+            df = self.live_cache.get_data(self.active_exchange, symbol)
+            if df is None or df.empty:
+                df = self.client.get_historical_klines(symbol, "4h", limit=250)
+                
             packet = MarketDataProcessor.get_context_packet(df, len(df)-1, window=200)
             if not packet:
                 print(f"Not enough data for {symbol}.")

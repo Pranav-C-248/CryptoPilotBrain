@@ -15,7 +15,8 @@ DEFAULT_SETTINGS = {
         "nvidia": ""
     },
     "lm_studio_base_url": "http://localhost:1234/v1",
-    "ollama_base_url": "http://localhost:11434/v1"
+    "ollama_base_url": "http://localhost:11434/v1",
+    "active_exchange": "binance"
 }
 
 class ConfigManager:

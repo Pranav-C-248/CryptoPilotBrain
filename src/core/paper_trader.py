@@ -12,12 +12,17 @@ sys.path.insert(0, project_root)
 
 from src.dashboard.shared.database import get_db, QueuedTrade, Portfolio, Position, TradeLedger
 from src.schema.models import RiskAssessment
-from src.tools.binance_client import BinancePublicClient
+from src.tools.exchange_client import ExchangeClient
+from src.tools.live_data import LiveDataCache
 from src.tools.indicators import MarketDataProcessor
+from src.core.config_manager import ConfigManager
 
 class PaperTradingEngine:
     def __init__(self):
-        self.client = BinancePublicClient()
+        settings = ConfigManager.load_settings()
+        self.active_exchange = settings.get("active_exchange", "binance")
+        self.client = ExchangeClient(self.active_exchange)
+        self.live_cache = LiveDataCache()
 
     def add_to_queue(self, risk_assessment: RiskAssessment, asset_name: str, signal: str):
         """Adds an approved risk assessment trade into the unentered queue."""
@@ -67,7 +72,9 @@ class PaperTradingEngine:
             
             for sym in symbols_needed:
                 try:
-                    df = self.client.get_historical_klines(sym, "1h", limit=200)
+                    df = self.live_cache.get_data(self.active_exchange, sym)
+                    if df is None or df.empty:
+                        df = self.client.get_historical_klines(sym, "4h", limit=200)
                     df = MarketDataProcessor.add_indicators(df)
                     
                     # Build locals dict for eval
