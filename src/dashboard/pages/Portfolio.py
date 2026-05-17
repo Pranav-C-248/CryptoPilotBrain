@@ -47,7 +47,8 @@ db.close()
 
 # --- Calculations ---
 total_realized_pnl = sum(trade.realized_pnl for trade in trades if trade.realized_pnl is not None)
-available_balance = portfolio.balance
+base_balance = portfolio.balance
+available_balance = base_balance + total_realized_pnl
 
 # If we had live prices, we could calculate unrealized P&L here
 # For now, we'll just show the position size and average price
@@ -59,7 +60,9 @@ with col1:
     st.metric(label="Available Balance", value=f"${available_balance:,.2f}")
 
 with col2:
-    pnl_pct = (total_realized_pnl / 10000.0) * 100
+    if base_balance <= 0:
+        base_balance = 100000.0
+    pnl_pct = (total_realized_pnl / base_balance) * 100
     if total_realized_pnl > 0:
         st.metric("Total Realized P&L", f"+${total_realized_pnl:,.2f}")
         st.markdown(f'<p style="color:#05b169; font-size:0.875rem; margin-top:-15px;">↑ {pnl_pct:.2f}%</p>', unsafe_allow_html=True)

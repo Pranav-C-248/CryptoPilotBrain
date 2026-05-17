@@ -1,3 +1,13 @@
+import os
+import logging
+import warnings
+
+# Suppress transformers initialization warnings before importing
+os.environ["TRANSFORMERS_VERBOSITY"] = "error"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+logging.getLogger("transformers").setLevel(logging.ERROR)
+warnings.filterwarnings("ignore", category=UserWarning, module="transformers")
+
 import feedparser
 from transformers import pipeline
 

@@ -25,6 +25,16 @@ class LiveDataCache:
         self.symbols = ["BTC/USDT", "ETH/USDT", "SOL/USDT"]
         self.exchanges = ["binance", "kraken", "coinbase", "bybit", "kucoin"]
         
+        try:
+            from src.core.config_manager import ConfigManager
+            settings = ConfigManager.load_settings()
+            active_exchange = settings.get("active_exchange", "binance")
+            if active_exchange in self.exchanges:
+                self.exchanges.remove(active_exchange)
+                self.exchanges.insert(0, active_exchange)
+        except Exception as e:
+            print("Could not load config for active exchange prioritization:", e)
+        
         # Start daemon thread
         self.loop = asyncio.new_event_loop()
         self.thread = threading.Thread(target=self._run_loop, daemon=True)
@@ -42,10 +52,16 @@ class LiveDataCache:
             self.cache[ex] = {}
             # Instantiate a single REST client per exchange to avoid multiple load_markets() calls
             rest_client = ExchangeClient(ex)
+            
+            # Pre-load markets sequentially to avoid GIL lock contention and CCXT rate-limiter spam
+            try:
+                await asyncio.to_thread(rest_client.exchange.load_markets)
+            except Exception as e:
+                print(f"[{ex}] Failed to pre-load markets: {e}")
             for sym in self.symbols:
                 self.cache[ex][sym] = None
-                tasks.append(self._watch_symbol(ex, sym, rest_client))
-                await asyncio.sleep(0.5)  # Stagger startup to prevent 429 Rate Limit errors
+                tasks.append(asyncio.create_task(self._watch_symbol(ex, sym, rest_client)))
+                await asyncio.sleep(0.1)  # Stagger startup to prevent 429 Rate Limit errors
         
         await asyncio.gather(*tasks)
 
@@ -110,7 +126,7 @@ class LiveDataCache:
             except Exception as e:
                 # Some exchanges like Coinbase might rarely disconnect or fail to stream
                 # print(f"[{exchange_id}] WS Error for {symbol}: {e}")
-                await asyncio.sleep(5)
+                await asyncio.sleep(2)
 
     def get_data(self, exchange_id: str, symbol: str) -> pd.DataFrame:
         with self.cache_lock:
