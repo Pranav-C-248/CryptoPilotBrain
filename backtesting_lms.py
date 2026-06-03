@@ -58,6 +58,7 @@ class BacktestEngine:
         
     def _load_cache(self):
         if os.path.exists(self.cache_file):
+            print(self.cache_file)
             with open(self.cache_file, "r") as f:
                 return json.load(f)
         return {}
@@ -325,14 +326,19 @@ class BacktestEngine:
                 print("  -> Using Cached LLM Output")
                 cache_data = self.cache[timestamp]
                 signal = AnalystSignal.model_validate(cache_data['signal'])
-                verdict = RiskAssessment.model_validate(cache_data['risk'])
+                verdict = self.risk_mgr.evaluate(
+                        analyst_signal=signal,
+                        market_data=packet,
+                        sentiment_score=0.2111,
+                        current_portfolio=self.portfolio
+                    )
             else:
                 try:
                     signal = self.analyst.analyze(market_data=packet, sentiment_score=0.5)
                     verdict = self.risk_mgr.evaluate(
                         analyst_signal=signal,
                         market_data=packet,
-                        sentiment_score=0.5,
+                        sentiment_score=0.3,
                         current_portfolio=self.portfolio
                     )
                     print(signal,verdict)

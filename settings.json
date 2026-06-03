@@ -11,5 +11,5 @@
     "lm_studio_base_url": "http://localhost:1234/v1",
     "ollama_base_url": "http://localhost:11434/v1",
     "auto_approve_trades": true,
-    "active_exchange": "binance"
+    "active_exchange": "kraken"
 }
